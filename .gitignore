@@ -27,6 +27,7 @@ tmp/
 *.pkl
 *.pt
 *.pth
+*.mexw64
 
 # Project-generated outputs
 trained_models*/
@@ -36,4 +37,3 @@ comparison_gamma*/
 gamma_comparison*/
 history/
 asm_log/Geo_*/
-
