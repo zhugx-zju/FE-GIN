@@ -35,9 +35,6 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   |-- plot_sample.py
 |   |-- plot_sample_asm.py
 |   `-- plot_true_modulus.py
-|-- data/
-|   |-- fixed_test_sets/          # Shared fixed test sets used by batch evaluation
-|   `-- data_*/                   # Generated or processed training datasets
 |-- data_generation/
 |   |-- stenglib-master/          # Third-party MATLAB helper library
 |   `-- uniform_pressure_load/    # IGFE forward solver and batch generation scripts
@@ -48,8 +45,9 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   |-- postprocess/              # CSV/figure/statistics generation
 |   |-- script/                   # Main training, testing, and comparison entry points
 |   `-- utils/
-|-- trained_models_mix/           # Saved checkpoints and histories
-`-- comparison_sample_GN/         # Example comparison outputs
+|-- data/                         # Local-only datasets, fixed test sets, and processed tensors
+|-- trained_models_mix/           # Local-only checkpoints and histories
+`-- comparison_sample_GN/         # Local-only comparison outputs
 ```
 
 ## Physical and Data Setup
@@ -267,18 +265,34 @@ Important: the comparison pipeline expects the shared fixed test set under `data
 - ASM forward/inverse outputs are saved into run-specific result folders with per-noise subdirectories
 - `asm_unet_compare` writes figures and summaries to configurable output folders such as `comparison_sample` or `comparison_sample_GN`
 
+## Data and Model Assets
+
+This GitHub repository is intended to be source-only. The following directories are treated as local assets and are ignored by git:
+
+- `data/`
+- `trained_models*/`
+- `comparison_*`
+- `history/`
+
+To reproduce the full workflow after cloning, you need to separately obtain or regenerate:
+
+- raw/generated MATLAB datasets
+- processed fixed test sets
+- trained PyTorch checkpoints
+- comparison figures and baseline outputs
+
 ## Notes on Third-Party Code
 
 `data_generation/stenglib-master` is third-party MATLAB code by Stefan Engblom. Its bundled README states that redistribution is allowed with attribution. If you publish this repository, keep the attribution and the original license statement intact.
 
 ## Notes for a Public GitHub Release
 
-This repository currently contains generated artifacts in addition to source code. Before making it public, it is recommended to:
+The repository has been prepared as a source-only public codebase:
 
-- add a root `.gitignore`
-- add a root `LICENSE`
-- decide whether large files such as `.mat`, `.pt`, `.pkl`, and generated `.png` files should remain in the main repo, move to Git LFS, or be released separately
-- clean any absolute local paths that may still appear in metadata files
+- generated datasets are excluded from git
+- trained checkpoints and comparison outputs are excluded from git
+- a root `.gitignore`, `LICENSE`, `requirements.txt`, and `CITATION.cff` are included
+- known absolute local paths in fixed-test-set metadata were removed from tracked files
 
 The documentation has been centralized in this root README so that the project has a single entry point for future GitHub users.
 

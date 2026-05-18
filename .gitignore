@@ -20,6 +20,9 @@ env/
 tmp/
 *.tmp
 
+# Local datasets and experiment assets
+data/
+
 # Generated datasets and binary artifacts
 *.mat
 *.npy
