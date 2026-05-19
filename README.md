@@ -93,6 +93,40 @@ pip install -r requirements.txt
 
 The root `requirements.txt` covers the common Python dependencies used across the PyTorch and ASM utilities. The file `asm_log/requirements.txt` remains as a minimal baseline-only dependency list.
 
+## External Assets
+
+This GitHub repository is source-only. The dataset and pretrained model assets are released separately on Hugging Face:
+
+- dataset repository: `zhugx/fe_gin_data`
+- model repository: `zhugx/fe_gin_models`
+
+Recommended local layout after download:
+
+```text
+FE-GIN/
+|-- data/                 # contents from the Hugging Face dataset repo
+`-- trained_models_mix/   # downloaded model package or extracted model directory
+```
+
+Current asset usage:
+
+- the dataset repository should be placed at `data/`
+- the model repository currently distributes the trained model package separately from the code repo
+- if the model repository is provided as a compressed archive, extract it so that `trained_models_mix/force_load/...` exists locally
+
+Minimal setup after cloning:
+
+```bash
+git clone https://github.com/zhugx-zju/FE-GIN.git
+cd FE-GIN
+pip install -r requirements.txt
+```
+
+Then download:
+
+- FE-GIN dataset assets from the Hugging Face dataset repo and place them under `data/`
+- FE-GIN model assets from the Hugging Face model repo and place/extract them under `trained_models_mix/`
+
 ## End-to-End Workflow
 
 ### 1. Generate MATLAB data
@@ -280,6 +314,12 @@ To reproduce the full workflow after cloning, you need to separately obtain or r
 - processed fixed test sets
 - trained PyTorch checkpoints
 - comparison figures and baseline outputs
+
+For the current public release workflow:
+
+- source code lives in this GitHub repository
+- datasets live in the Hugging Face dataset repository `zhugx/fe_gin_data`
+- pretrained models live in the Hugging Face model repository `zhugx/fe_gin_models`
 
 ## Notes on Third-Party Code
 
