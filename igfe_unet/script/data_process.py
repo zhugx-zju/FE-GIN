@@ -3,6 +3,7 @@ import sys
 import torch
 import scipy.io as sio
 import os
+import json
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, '..'))
 if root_dir not in sys.path:
@@ -71,8 +72,9 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
                        train_rto=None,
                        valid_rto=None,
                        load_type=None,
+                       output_dir=None,
                        verbose=True):
-    """Combine processed data from multiple cases into mix dataset with specified ratios."""
+    """Build a reproducible mix dataset in a dedicated output directory."""
     if verbose:
         print(f"\n{'='*50}")
         print(f"Creating Mixed Dataset")
@@ -113,6 +115,56 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
     total_val = int(total_samples * valid_rto)
     total_test = total_samples - total_train - total_val
 
+    dataset_identity = {
+        'format_version': 1,
+        'cases': list(cases),
+        'load_type': load_type,
+        'seed': int(seed),
+        'ratios': {case: float(ratios[case]) for case in cases},
+        'train_rto': float(train_rto),
+        'valid_rto': float(valid_rto),
+        'test_rto': float(1.0 - train_rto - valid_rto),
+        'test_ratios': {case: float(test_ratios[case]) for case in cases},
+        'total_samples_per_case': int(total_samples),
+    }
+
+    base_mix_dir = os.path.join(base_data_dir, 'data_mix', load_type)
+    mix_dir = os.path.abspath(base_mix_dir if output_dir is None else output_dir)
+    manifest_path = os.path.join(mix_dir, 'dataset_manifest.json')
+
+    if output_dir is not None and os.path.exists(manifest_path):
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            existing_manifest = json.load(f)
+        if existing_manifest.get('dataset_identity') != dataset_identity:
+            raise FileExistsError(
+                f'Existing dataset manifest does not match requested configuration: {manifest_path}'
+            )
+        required_files = ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
+        missing_files = [name for name in required_files if not os.path.exists(os.path.join(mix_dir, name))]
+        if missing_files:
+            raise FileNotFoundError(
+                f'Dataset manifest exists but generated files are missing under {mix_dir}: {missing_files}'
+            )
+        if verbose:
+            print(f'Reusing existing immutable dataset: {mix_dir}')
+        return {
+            'mix_dir': mix_dir,
+            'manifest_path': manifest_path,
+            'total_samples': int(existing_manifest['total_samples']),
+            'split_sizes': dict(existing_manifest['split_sizes']),
+            'case_split_counts': existing_manifest['case_split_counts'],
+        }
+
+    if output_dir is not None:
+        existing_files = [
+            name for name in ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
+            if os.path.exists(os.path.join(mix_dir, name))
+        ]
+        if existing_files:
+            raise FileExistsError(
+                f'Output directory already contains dataset files but no matching manifest: {mix_dir}'
+            )
+
     split_case_counts = {
         'train': compute_ratio_counts(total_train, ratios, cases),
         'val': compute_ratio_counts(total_val, ratios, cases),
@@ -139,6 +191,8 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         'test': {'input': [], 'output': [], 'dof': [], 'force_ele': [], 'force': []},
     }
     split_counts = {k: {case: 0 for case in cases} for k in split_data.keys()}
+    manifest_datasets = {}
+    merge_permutations = {}
 
     # Load and sample data from each case
     np.random.seed(int(seed))  # Set seed once for reproducibility
@@ -196,6 +250,15 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
             sampled_idx = np.random.choice(pool_idx, req, replace=False) if req > 0 else np.array([], dtype=int)
             sampled_by_split[split_name] = sampled_idx
 
+        manifest_datasets[case] = {
+            'source_dir': os.path.relpath(case_dir, base_data_dir).replace(os.sep, '/'),
+            'total_samples': int(available_samples),
+            'source_indices': {
+                split_name: sampled_by_split[split_name].astype(int).tolist()
+                for split_name in ['train', 'val', 'test']
+            },
+        }
+
         # Hard check: no overlap between split indices within the same case.
         train_set = set(sampled_by_split['train'].tolist())
         val_set = set(sampled_by_split['val'].tolist())
@@ -226,6 +289,7 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         perm = np.random.permutation(merged['input'].shape[0])
         for key in merged.keys():
             merged[key] = merged[key][perm]
+        merge_permutations[split_name] = perm.astype(int).tolist()
         return merged
 
     train_merged = merge_split_with_shared_perm('train')
@@ -252,8 +316,7 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         print(f"  DOF: {combined_dof.shape}")
         print(f"  Force_ele: {combined_force_ele.shape}")
 
-    # Save to mix directory
-    mix_dir = os.path.join(base_data_dir, 'data_mix', load_type)
+    # Save to the requested dataset directory.
     os.makedirs(mix_dir, exist_ok=True)
 
     sio.savemat(os.path.join(mix_dir, 'input.mat'), {'U': combined_input})
@@ -261,6 +324,23 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
     np.save(os.path.join(mix_dir, 'dof.npy'), combined_dof)
     np.save(os.path.join(mix_dir, 'force_ele.npy'), combined_force_ele)
     np.save(os.path.join(mix_dir, 'force.npy'), combined_force)
+
+    manifest = {
+        'dataset_identity': dataset_identity,
+        'mix_dir': mix_dir,
+        'total_samples': int(combined_input.shape[0]),
+        'split_sizes': {
+            'train': int(train_input.shape[0]),
+            'val': int(val_input.shape[0]),
+            'test': int(test_input.shape[0]),
+        },
+        'case_split_counts': split_counts,
+        'datasets': manifest_datasets,
+        'merge_permutations': merge_permutations,
+        'files': ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy'],
+    }
+    with open(manifest_path, 'w', encoding='utf-8') as f:
+        json.dump(manifest, f, indent=2)
 
     if verbose:
         print(f"\nSaved to {mix_dir}")
@@ -277,6 +357,7 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
 
     return {
         'mix_dir': mix_dir,
+        'manifest_path': manifest_path,
         'total_samples': int(combined_input.shape[0]),
         'split_sizes': {
             'train': int(train_input.shape[0]),

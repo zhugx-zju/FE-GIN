@@ -93,7 +93,10 @@ class Testing:
 
             for data_type in self.eval_types:
                 # Construct path for specific type
-                if data_type == 'mix':
+                eval_data_paths = getattr(self.cfg, 'eval_data_paths', {})
+                if data_type in eval_data_paths:
+                    base_path = eval_data_paths[data_type]
+                elif data_type == 'mix':
                     base_path = original_data_path
                 else:
                     base_path = original_data_path.replace('/data_mix/', f'/data_{data_type}/')

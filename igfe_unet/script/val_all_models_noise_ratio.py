@@ -3,11 +3,11 @@ import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, '..'))
+from pathlib import Path
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 from model.test import Testing
-from data_process import create_mix_dataset
 from postprocess.common import (
     extract_mix_ratio_info,
     find_all_experiments,
@@ -23,7 +23,6 @@ TARGET_LOAD_TYPE = 'force_load'
 TARGET_METHOD = 'MSE'
 TARGET_USE_BATCH_NORM = True
 TARGET_EXPERIMENT_GROUP = 'ratio'
-DATA_SEED = 4
 TARGET_RATIO_TAGS = [
     'b0p33_e0p33_g0p34',
     'b0p1_e0p8_g0p1',
@@ -44,7 +43,6 @@ print(f'Target config type: {TARGET_CONFIG_TYPE}')
 print(f'Target load type: {TARGET_LOAD_TYPE}')
 print(f'Target method: {TARGET_METHOD}')
 print(f'Target use_batch_norm: {TARGET_USE_BATCH_NORM}')
-print(f'Data seed (for rebuilding mix set): {DATA_SEED}')
 print(f'Target ratio tags: {TARGET_RATIO_TAGS}')
 
 base_cfg = Config(TARGET_CONFIG_TYPE)
@@ -105,6 +103,20 @@ for (_, load_type, exp_id, exp_path), exp_cfg, ratio_tag, ratio_info in selected
     cfg = Config(TARGET_CONFIG_TYPE)
     cfg.config_type = TARGET_CONFIG_TYPE
     cfg.load_type = load_type
+    ratio_data_dir = Path(root_dir).parent / 'data' / 'mix_ratio_datasets' / ratio_tag / load_type
+    manifest_path = ratio_data_dir / 'dataset_manifest.json'
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            f'Ratio dataset manifest not found for {ratio_tag}: {manifest_path}. '
+            'Run train_mse_ratio.py or generate the ratio dataset first.'
+        )
+    cfg.data_path = str(ratio_data_dir.resolve())
+    cfg.eval_data_paths = {
+        'mix': cfg.data_path,
+        'bil': str((Path(root_dir).parent / 'data' / 'data_bil' / load_type).resolve()),
+        'exp': str((Path(root_dir).parent / 'data' / 'data_exp' / load_type).resolve()),
+        'grf': str((Path(root_dir).parent / 'data' / 'data_grf' / load_type).resolve()),
+    }
     cfg.num = val_num
     cfg.eval_types = eval_types
     cfg.save_format = getattr(base_cfg, 'save_format', 'both')
@@ -128,24 +140,7 @@ for (_, load_type, exp_id, exp_path), exp_cfg, ratio_tag, ratio_info in selected
     if 'grf_ratio' in exp_cfg:
         cfg.grf_ratio = exp_cfg['grf_ratio']
 
-    bil_ratio = ratio_info.get('bil_ratio')
-    exp_ratio = ratio_info.get('exp_ratio')
-    grf_ratio = ratio_info.get('grf_ratio')
-    if bil_ratio is not None and exp_ratio is not None and grf_ratio is not None:
-        print(
-            f"Rebuild mix dataset for ratio: "
-            f"bil={bil_ratio:.4f}, exp={exp_ratio:.4f}, grf={grf_ratio:.4f}"
-        )
-        create_mix_dataset(
-            seed=DATA_SEED,
-            bil_ratio=bil_ratio,
-            exp_ratio=exp_ratio,
-            grf_ratio=grf_ratio,
-            train_rto=cfg.train_rto,
-            valid_rto=cfg.valid_rto,
-            load_type=cfg.load_type,
-            verbose=False,
-        )
+    print(f'Using immutable ratio dataset: {cfg.data_path}')
 
     cfg.noise_level = 0
     tester = Testing(cfg, experiment_path=exp_path)

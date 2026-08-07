@@ -99,6 +99,20 @@ The processed fixed test sets currently stored in `data/fixed_test_sets/force_lo
 - displacement input: `[N, 2, 40, 40]`
 - modulus output: `[N, 40, 40]`
 
+Ratio-study datasets are stored separately so that generating one ratio cannot
+overwrite another ratio or the default `data_mix` dataset:
+
+```text
+data/mix_ratio_datasets/
+`-- <ratio_tag>/force_load/
+    |-- input.mat
+    |-- output.mat
+    |-- dof.npy
+    |-- force_ele.npy
+    |-- force.npy
+    `-- dataset_manifest.json
+```
+
 ## Requirements
 
 ### MATLAB
@@ -262,8 +276,8 @@ For the grouped studies, use the scripts in this order:
 3. `train_mse_ratio.py` for the dataset-ratio group.
 
 The architecture group changes the network architecture while using the
-current prepared mix dataset. The ratio group explicitly rebuilds the mix
-dataset for each requested ratio.
+current prepared mix dataset. The ratio group builds one immutable dataset
+directory per ratio under `data/mix_ratio_datasets/`.
 
 ### 4. Run batch U-Net evaluation and postprocessing
 
@@ -303,9 +317,9 @@ python compare_robustness_ratio.py
 ```
 
 The three `test_all_models_noise*.py` scripts use the shared fixed test sets.
-The `val_all_models_noise*.py` scripts evaluate the current prepared dataset
-split and should be run according to the dataset-generation order used for the
-corresponding experiment group.
+The standard and architecture validation scripts use the prepared default mix
+dataset. The ratio validation script reads the ratio-specific
+`dataset_manifest.json` and does not rebuild or overwrite `data_mix`.
 
 ### 5. Run the ASM / adjoint baseline
 
@@ -385,6 +399,8 @@ Important: the comparison pipeline expects the shared fixed test set under `data
 - `asm_unet_compare` writes figures and summaries under `results/force_load/asm_unet_comparison/GN/`
 - fixed-gamma ASM comparison outputs are written under
   `results/force_load/asm_unet_comparison/fixed_gamma_<value>/GN/`
+- ratio-study datasets are written under
+  `data/mix_ratio_datasets/<ratio_tag>/force_load/`
 
 ## Data and Model Assets
 

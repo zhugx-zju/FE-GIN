@@ -91,6 +91,9 @@ for bil_ratio, exp_ratio, grf_ratio in TARGET_RATIOS:
     print(f'Ratio tag: {ratio_tag}')
     print(f'Experiment id: {cfg.exp_id_override}')
     print('- Build mix dataset...')
+    ratio_data_dir = os.path.abspath(
+        os.path.join(root_dir, '..', 'data', 'mix_ratio_datasets', ratio_tag, cfg.load_type)
+    )
     ds_info = create_mix_dataset(
         seed=DATA_SEED,
         bil_ratio=cfg.bil_ratio,
@@ -99,8 +102,16 @@ for bil_ratio, exp_ratio, grf_ratio in TARGET_RATIOS:
         train_rto=cfg.train_rto,
         valid_rto=cfg.valid_rto,
         load_type=cfg.load_type,
+        output_dir=ratio_data_dir,
         verbose=True,
     )
+    cfg.data_path = ds_info['mix_dir']
+    cfg.dataset_manifest = ds_info['manifest_path']
+    cfg.dataset_id = ratio_tag
+    cfg.variable_names = list(cfg.variable_names)
+    for key in ['dataset_id', 'dataset_manifest']:
+        if key not in cfg.variable_names:
+            cfg.variable_names.append(key)
     print(
         f"- Dataset ready: train/val/test = "
         f"{ds_info['split_sizes']['train']}/"
