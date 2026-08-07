@@ -8,7 +8,7 @@ root_dir = os.path.abspath(os.path.join(current_dir, '..'))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 from model.train import Training
-from utils.utils_process import Config, config_from_json
+from utils.utils_process import Config, config_from_json, resolve_experiment_group
 
 
 MODEL_INIT_SEED = 42
@@ -32,10 +32,10 @@ config_type = config_from_json()
 # %% Load the configuration file -------------------------
 cfg = Config(config_type)
 cfg.config_type = config_type
-cfg.experiment_group = os.environ.get(
-    'EXPERIMENT_GROUP',
-    getattr(cfg, 'experiment_group', 'std'),
-).strip().lower()
+cfg.experiment_group = resolve_experiment_group(
+    cfg,
+    override=os.environ.get('EXPERIMENT_GROUP') or None,
+)
 reset_global_seed(MODEL_INIT_SEED)
 print(f"Global seed: {MODEL_INIT_SEED}")
 print(f"Using device: {cfg.device}")

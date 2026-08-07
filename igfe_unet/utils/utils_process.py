@@ -17,6 +17,17 @@ def normalize_experiment_group(group, default='std'):
         )
     return value
 
+
+def resolve_experiment_group(cfg, override=None):
+    """Resolve the output group, keeping mixed-loss runs separate by default."""
+    group = override
+    if group is None:
+        group = getattr(cfg, 'experiment_group', None)
+    if group is None:
+        method = str(getattr(cfg, 'method', '')).strip().lower()
+        group = 'gamma' if method in ('locmixloss', 'glomixloss') else 'std'
+    return normalize_experiment_group(group)
+
 class Config:
     def __init__(self, config_type):
         # Dynamically import the correct configuration module
@@ -176,14 +187,14 @@ def experiment_dir_for_config(cfg):
     New experiments are stored as:
         trained_models_{config_type}/{load_type}/{group}/{experiment_id}
 
-    The group defaults to ``std`` so ordinary training remains compatible
-    with the main experiment layout.
+    Explicit groups take precedence. Without one, mixed-loss methods use
+    ``gamma`` and the standard physical-loss methods use ``std``.
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
     model_root = os.path.join(project_root, _model_root_for_config(cfg.config_type))
     load_type = str(getattr(cfg, 'load_type', 'force_load')).strip()
-    group = normalize_experiment_group(getattr(cfg, 'experiment_group', 'std'))
+    group = resolve_experiment_group(cfg)
     exp_id = generate_experiment_id(cfg)
     return os.path.join(model_root, load_type, group, exp_id)
 
@@ -201,8 +212,9 @@ def write_config(cfg, filepath):
 
     # Write selected configuration variables to the file
     keys_to_write = list(cfg.variable_names)
-    if hasattr(cfg, 'experiment_group') and 'experiment_group' not in keys_to_write:
+    if 'experiment_group' not in keys_to_write:
         keys_to_write.append('experiment_group')
+    experiment_group = resolve_experiment_group(cfg)
     is_mix_method = isinstance(getattr(cfg, 'method', None), str) and ('Mix' in cfg.method)
 
     if is_mix_method:
@@ -213,7 +225,7 @@ def write_config(cfg, filepath):
 
     with open(config_file_path, 'w') as file:
         for key in keys_to_write:
-            value = getattr(cfg, key, None)
+            value = experiment_group if key == 'experiment_group' else getattr(cfg, key, None)
             file.write(f"{key} = {repr(value)}\n")
 
     return config_file_path
