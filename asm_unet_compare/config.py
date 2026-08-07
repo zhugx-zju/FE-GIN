@@ -3,7 +3,7 @@ def get_config():
         # ---------------------------------------------------------------------
         # Shared output / plotting
         # ---------------------------------------------------------------------
-        'output_dir': 'comparison_sample',
+        'output_dir': 'results/force_load/asm_unet_comparison',
         'dpi': 600,
         # ---------------------------------------------------------------------
         # Dataset and sample control
@@ -22,9 +22,10 @@ def get_config():
         # ---------------------------------------------------------------------
         'unet_config_type': 'mix',
         'unet_load_type': 'force_load',
+        'unet_experiment_group': 'final_model',
         'unet_use_batch_norm': True,
         'unet_architecture': '[2, 32, 64, 128]',
-        'unet_methods': ['MSE', 'GloResloss', 'LocResloss'],
+        'unet_methods': ['MSE', 'LocMixloss', 'GloMixloss'],
         # Optional Mix-model gamma selectors used by run_sample_unet.py,
         # run_sample_warm_start.py and plot_sample.py.
         # - mix_gamma: one gamma for both LocMixloss/GloMixloss
@@ -55,12 +56,12 @@ def get_config():
         # suffix based on warm_start_method.
         'use_warm_start': False,
         'warm_start_method': 'GloResloss',
-        'warm_start_output_dir': 'comparison_sample',
+        'warm_start_output_dir': 'results/force_load/asm_unet_comparison',
         # Reuse gamma selected from the corresponding cold-start ASM case.
         # If enabled, the current warm-start run skips its own L-curve scan
         # and directly uses the saved cold-start gamma_opt at each noise level.
         'use_cold_start_gamma': True,
-        'cold_start_gamma_source_dir': 'comparison_sample',
+        'cold_start_gamma_source_dir': 'results/force_load/asm_unet_comparison',
         # L-curve controls
         'enable_lcurve': True,
         'lcurve_points': 25,

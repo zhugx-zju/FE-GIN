@@ -183,8 +183,11 @@ def resolve_variant_output_dir(output_dir, use_batch_norm=False):
     if not bool(use_batch_norm):
         return output_dir
     suffix = get_model_variant_suffix(use_batch_norm=use_batch_norm)
-    if str(output_dir).endswith(suffix):
+    normalized = str(output_dir).replace('\\', '/')
+    if normalized.endswith(suffix) or normalized.endswith('/GN'):
         return output_dir
+    if normalized.startswith('results/'):
+        return os.path.join(output_dir, 'GN')
     return f"{output_dir}{suffix}"
 
 

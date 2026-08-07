@@ -1,6 +1,21 @@
 import importlib
 import os
+import torch
 from torch.utils.data import Dataset
+
+
+EXPERIMENT_GROUPS = ('std', 'gamma', 'arch', 'ratio', 'final_model')
+
+
+def normalize_experiment_group(group, default='std'):
+    """Normalize the model/analysis experiment group name."""
+    value = default if group is None else str(group).strip().lower()
+    if value not in EXPERIMENT_GROUPS:
+        raise ValueError(
+            f"Invalid experiment group '{value}'. "
+            f"Expected one of: {', '.join(EXPERIMENT_GROUPS)}."
+        )
+    return value
 
 class Config:
     def __init__(self, config_type):
@@ -29,6 +44,16 @@ class Config:
             configs_dir = os.path.join(current_dir, '..', 'configs')
             # Convert relative path to absolute path
             self.data_path = os.path.abspath(os.path.join(configs_dir, self.data_path))
+
+        # Keep config files portable across GPU and CPU-only environments.
+        # The configured device remains unchanged when the requested backend
+        # is available.
+        if getattr(self, 'device', None) == 'cuda' and not torch.cuda.is_available():
+            self.device = 'cpu'
+        elif getattr(self, 'device', None) == 'mps':
+            mps = getattr(torch.backends, 'mps', None)
+            if mps is None or not mps.is_available():
+                self.device = 'cpu'
 
     def load_config_variables(self, cfg):
         # Iterate through the module's attributes and set them to this class
@@ -130,26 +155,43 @@ def get_filepath(method):
         filepath = 'GloRes'
     return filepath
 
+
+def _model_root_for_config(config_type):
+    if config_type == 'layer':
+        return 'trained_models_layer'
+    if config_type == 'mix':
+        return 'trained_models_mix'
+    if config_type == 'bil':
+        return 'trained_models_bil'
+    if config_type == 'exp':
+        return 'trained_models_exp'
+    if config_type == 'grf':
+        return 'trained_models_grf'
+    raise ValueError(f"Unsupported configuration type: {config_type}")
+
+
+def experiment_dir_for_config(cfg):
+    """Return the grouped model directory for a training configuration.
+
+    New experiments are stored as:
+        trained_models_{config_type}/{load_type}/{group}/{experiment_id}
+
+    The group defaults to ``std`` so ordinary training remains compatible
+    with the main experiment layout.
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
+    model_root = os.path.join(project_root, _model_root_for_config(cfg.config_type))
+    load_type = str(getattr(cfg, 'load_type', 'force_load')).strip()
+    group = normalize_experiment_group(getattr(cfg, 'experiment_group', 'std'))
+    exp_id = generate_experiment_id(cfg)
+    return os.path.join(model_root, load_type, group, exp_id)
+
 def write_config(cfg, filepath):
     # Generate experiment ID
     exp_id = generate_experiment_id(cfg)
 
-    if cfg.config_type == 'layer':
-        dir_name = 'trained_models_layer'
-    elif cfg.config_type == 'mix':
-        dir_name = 'trained_models_mix'
-    elif cfg.config_type == 'bil':
-        dir_name = 'trained_models_bil'
-    elif cfg.config_type == 'exp':
-        dir_name = 'trained_models_exp'
-    elif cfg.config_type == 'grf':
-        dir_name = 'trained_models_grf'
-
-    # Get the path to the igfe_loss directory (parent of igfe_cnn)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    igfe_loss_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-    dir_path = os.path.join(igfe_loss_dir, dir_name)
-    dir_path = os.path.join(dir_path, cfg.load_type, exp_id)
+    dir_path = experiment_dir_for_config(cfg)
 
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
@@ -159,6 +201,8 @@ def write_config(cfg, filepath):
 
     # Write selected configuration variables to the file
     keys_to_write = list(cfg.variable_names)
+    if hasattr(cfg, 'experiment_group') and 'experiment_group' not in keys_to_write:
+        keys_to_write.append('experiment_group')
     is_mix_method = isinstance(getattr(cfg, 'method', None), str) and ('Mix' in cfg.method)
 
     if is_mix_method:
@@ -178,23 +222,7 @@ def construct_paths(cfg):
     # Generate experiment ID based on all key parameters
     exp_id = generate_experiment_id(cfg)
 
-    if cfg.config_type == 'layer':
-        dir_name = 'trained_models_layer'
-    elif cfg.config_type == 'mix':
-        dir_name = 'trained_models_mix'
-    elif cfg.config_type == 'bil':
-        dir_name = 'trained_models_bil'
-    elif cfg.config_type == 'exp':
-        dir_name = 'trained_models_exp'
-    elif cfg.config_type == 'grf':
-        dir_name = 'trained_models_grf'
-
-    # Construct directory with experiment ID
-    # Get the path to the igfe_loss directory (parent of igfe_cnn)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    igfe_loss_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-    train_path = os.path.join(igfe_loss_dir, dir_name)
-    train_path = os.path.join(train_path, cfg.load_type, exp_id)
+    train_path = experiment_dir_for_config(cfg)
 
     if not os.path.exists(train_path):
         os.makedirs(train_path)

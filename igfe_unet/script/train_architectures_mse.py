@@ -69,6 +69,7 @@ for filters_list in TARGET_ARCHITECTURES:
     cfg = Config(TARGET_CONFIG_TYPE)
     cfg.config_type = TARGET_CONFIG_TYPE
     cfg.load_type = TARGET_LOAD_TYPE
+    cfg.experiment_group = 'arch'
     cfg.method = TARGET_METHOD
     cfg.filters_list = list(filters_list)
     cfg.preload = False

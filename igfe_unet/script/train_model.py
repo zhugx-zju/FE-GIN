@@ -32,9 +32,14 @@ config_type = config_from_json()
 # %% Load the configuration file -------------------------
 cfg = Config(config_type)
 cfg.config_type = config_type
+cfg.experiment_group = os.environ.get(
+    'EXPERIMENT_GROUP',
+    getattr(cfg, 'experiment_group', 'std'),
+).strip().lower()
 reset_global_seed(MODEL_INIT_SEED)
 print(f"Global seed: {MODEL_INIT_SEED}")
 print(f"Using device: {cfg.device}")
+print(f"Experiment group: {cfg.experiment_group}")
 trainer = Training(cfg)
 trainer.run_train()
 # %%

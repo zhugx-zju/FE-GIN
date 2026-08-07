@@ -10,7 +10,8 @@ from postprocess.common import (
     load_experiment_results,
     generate_comparison_dataframe,
     generate_paraset_table,
-    save_results
+    save_results,
+    resolve_analysis_output_dir,
 )
 from pathlib import Path
 
@@ -21,9 +22,14 @@ TARGET_METHOD = 'MSE'  # Only compare MSE loss
 TARGET_USE_BATCH_NORM = True
 TARGET_CONFIG_TYPE = 'mix'  # Dataset to compare on
 TARGET_LOAD_TYPE = 'force_load'  # Load type to compare
+TARGET_EXPERIMENT_GROUP = 'arch'
 # ============================================================================
-OUTPUT_DIR = Path('../..') / f"architecture_comparison{_gn_suffix(TARGET_USE_BATCH_NORM)}"
-TXT_FILE = OUTPUT_DIR / f"table1_architectures{_gn_suffix(TARGET_USE_BATCH_NORM)}.txt"
+OUTPUT_DIR = resolve_analysis_output_dir(
+    TARGET_EXPERIMENT_GROUP,
+    load_type=TARGET_LOAD_TYPE,
+    use_batch_norm=TARGET_USE_BATCH_NORM,
+)
+TXT_FILE = OUTPUT_DIR / f"tableC1_architectures{_gn_suffix(TARGET_USE_BATCH_NORM)}.txt"
 
 print("="*80)
 print("Table 1: Architecture Comparison")
@@ -36,7 +42,7 @@ print(f"  Load Type: {TARGET_LOAD_TYPE}")
 print("="*80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 print("\nLoading and filtering experiment results...")

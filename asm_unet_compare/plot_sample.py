@@ -27,8 +27,8 @@ from pipeline.asm_unet_compare import compare_asm_unet_cases
 # ---------------------------------------------------------------------------
 CASES = [
     {
-        'dataset': 'grf',
-        'sample_index': 410,
+        'dataset': 'exp',
+        'sample_index': 200,
         'noise_levels': [0, 2, 4, 6, 8, 10],
         # 'unet_methods': ['MSE', 'GloResloss'],
         'unet_methods': ['MSE', 'LocMixloss', 'GloMixloss'],

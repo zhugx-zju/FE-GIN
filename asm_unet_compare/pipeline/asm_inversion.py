@@ -73,6 +73,11 @@ def _normalize_case_cfg(cfg, case_cfg):
         'nodesy': int(case_cfg.get('nodesy', cfg['nodesy'])),
         'asm_dof_order': case_cfg.get('asm_dof_order', cfg['asm_dof_order']),
         'asm_gamma': case_cfg.get('asm_gamma', cfg.get('asm_gamma', None)),
+        'asm_output_dir': case_cfg.get('asm_output_dir', cfg.get('asm_output_dir', cfg['output_dir'])),
+        'displacement_source_dir': case_cfg.get(
+            'displacement_source_dir',
+            cfg.get('displacement_source_dir', cfg['output_dir']),
+        ),
         'asm_max_iter': int(case_cfg.get('asm_max_iter', cfg['asm_max_iter'])),
         'asm_ftol': float(case_cfg.get('asm_ftol', cfg['asm_ftol'])),
         'asm_gtol': float(case_cfg.get('asm_gtol', cfg['asm_gtol'])),
@@ -503,7 +508,7 @@ def _write_summary(output_root, summary_rows, use_warm_start=False, warm_start_m
 
 def run_asm_inversion_cases(project_root, cfg, cases):
     output_dir = resolve_variant_output_dir(
-        cfg['output_dir'],
+        cfg.get('asm_output_dir', cfg['output_dir']),
         use_batch_norm=cfg.get('unet_use_batch_norm', False),
     )
     output_root = resolve_output_root(project_root, output_dir)
@@ -558,8 +563,13 @@ def run_asm_inversion_cases(project_root, cfg, cases):
         )
         data_dir = os.path.join(output_root, f"sample_{resolved_idx}", data_type)
         os.makedirs(data_dir, exist_ok=True)
+        displacement_source_dir = resolve_variant_output_dir(
+            case_cfg['displacement_source_dir'],
+            use_batch_norm=case_cfg.get('unet_use_batch_norm', False),
+        )
+        displacement_source_root = resolve_output_root(project_root, displacement_source_dir)
         displacement_by_noise = _build_saved_displacement_map(
-            output_root=output_root,
+            output_root=displacement_source_root,
             case_cfg=case_cfg,
             resolved_idx=resolved_idx,
         )
@@ -589,7 +599,7 @@ def run_asm_inversion_cases(project_root, cfg, cases):
                 f"{noise:g}%->{info['gamma']:.3e}" for noise, info in sorted(gamma_by_noise.items())
             )
             print(f"Reusing cold-start gamma by noise: {gamma_text}")
-        print(f"Reusing saved displacement fields from {output_root}")
+        print(f"Reusing saved displacement fields from {displacement_source_root}")
 
         panel_data = predict_asm_panel(
             asm_ctx=asm_ctx,

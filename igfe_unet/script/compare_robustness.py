@@ -6,7 +6,11 @@ root_dir = os.path.abspath(os.path.join(current_dir, '..'))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from postprocess.common import find_all_experiments, load_experiment_results
+from postprocess.common import (
+    find_all_experiments,
+    load_experiment_results,
+    resolve_analysis_output_dir,
+)
 from postprocess.common import extract_mix_ratio_info
 from postprocess.common import _gn_suffix
 from postprocess.robustness import (
@@ -23,9 +27,14 @@ TARGET_USE_BATCH_NORM = True
 TARGET_ARCHITECTURE = '[2, 32, 64, 128]'  # Target network architecture
 TARGET_LOAD_TYPE = 'force_load'  # Load type to compare
 TARGET_METHODS = ['MSE', 'LocResloss', 'GloResloss']  # Robustness methods only
+TARGET_EXPERIMENT_GROUP = 'std'
 EXCLUDE_RATIO_EXPERIMENTS = True  # Exclude ratio-sweep experiments from robustness comparison
 # ============================================================================
-OUTPUT_DIR = os.path.join(root_dir, '..', f'comparison_results{_gn_suffix(TARGET_USE_BATCH_NORM)}')
+OUTPUT_DIR = resolve_analysis_output_dir(
+    TARGET_EXPERIMENT_GROUP,
+    load_type=TARGET_LOAD_TYPE,
+    use_batch_norm=TARGET_USE_BATCH_NORM,
+)
 
 print("=" * 80)
 print("Robustness Comparison")
@@ -40,7 +49,7 @@ print(f"  Exclude ratio experiments: {EXCLUDE_RATIO_EXPERIMENTS}")
 print("=" * 80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 print("\nLoading and filtering experiment results...")

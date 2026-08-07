@@ -22,6 +22,7 @@ TARGET_CONFIG_TYPE = 'mix'
 TARGET_LOAD_TYPE = 'force_load'
 TARGET_METHOD = 'MSE'
 TARGET_USE_BATCH_NORM = True
+TARGET_EXPERIMENT_GROUP = 'ratio'
 TARGET_RATIO_TAGS = [
     'b0p33_e0p33_g0p34',
     'b0p1_e0p8_g0p1',
@@ -61,7 +62,7 @@ else:
 print('=' * 80)
 
 print('\nSearching for experiments...')
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f'Found {len(experiments)} total experiments')
 
 selected = []
@@ -142,4 +143,3 @@ for (_, load_type, exp_id, exp_path), exp_cfg, ratio_tag, ratio_info in selected
 print('\n' + '=' * 80)
 print('Batch ratio testing completed.')
 print('=' * 80)
-

@@ -105,6 +105,8 @@ def _normalize_case_cfg(cfg, case_cfg):
         'nodesx': int(case_cfg.get('nodesx', cfg['nodesx'])),
         'nodesy': int(case_cfg.get('nodesy', cfg['nodesy'])),
         'asm_gamma': case_cfg.get('asm_gamma', cfg.get('asm_gamma', None)),
+        'asm_output_dir': case_cfg.get('asm_output_dir', cfg.get('asm_output_dir', cfg['output_dir'])),
+        'unet_output_dir': case_cfg.get('unet_output_dir', cfg.get('unet_output_dir', cfg['output_dir'])),
         'asm_max_iter': int(case_cfg.get('asm_max_iter', cfg['asm_max_iter'])),
         'asm_ftol': float(case_cfg.get('asm_ftol', cfg['asm_ftol'])),
         'asm_gtol': float(case_cfg.get('asm_gtol', cfg['asm_gtol'])),
@@ -281,11 +283,21 @@ def compare_asm_unet_cases(project_root, cfg, cases):
     summary_groups = {}
     for raw_case in cases:
         case_cfg = _normalize_case_cfg(cfg, raw_case)
-        output_dir = resolve_variant_output_dir(
+        asm_output_dir = resolve_variant_output_dir(
+            case_cfg.get('asm_output_dir', cfg.get('asm_output_dir', cfg['output_dir'])),
+            use_batch_norm=case_cfg['unet_use_batch_norm'],
+        )
+        asm_output_root = resolve_output_root(project_root, asm_output_dir)
+        unet_output_dir = resolve_variant_output_dir(
+            case_cfg.get('unet_output_dir', cfg.get('unet_output_dir', cfg['output_dir'])),
+            use_batch_norm=case_cfg['unet_use_batch_norm'],
+        )
+        unet_output_root = resolve_output_root(project_root, unet_output_dir)
+        comparison_output_dir = resolve_variant_output_dir(
             cfg['output_dir'],
             use_batch_norm=case_cfg['unet_use_batch_norm'],
         )
-        output_root = resolve_output_root(project_root, output_dir)
+        comparison_output_root = resolve_output_root(project_root, comparison_output_dir)
         load_filename_suffix = get_asm_result_suffix(
             case_cfg['use_warm_start'],
             case_cfg['warm_start_method'],
@@ -299,7 +311,7 @@ def compare_asm_unet_cases(project_root, cfg, cases):
         data_type = case_cfg['dataset']
         idx_cfg = case_cfg['sample_index']
         asm_dir, asm_panel_data, sample_idx, saved_case_cfg = load_asm_panel_data(
-            output_root=output_root,
+            output_root=asm_output_root,
             data_type=data_type,
             sample_index=idx_cfg,
             noise_levels=case_cfg['noise_levels'],
@@ -308,14 +320,14 @@ def compare_asm_unet_cases(project_root, cfg, cases):
         if not asm_panel_data or asm_dir is None or sample_idx is None:
             print(
                 f"Skip dataset={data_type}, sample_index={idx_cfg}: "
-                f"missing ASM noise results under {output_root}"
+                f"missing ASM noise results under {asm_output_root}"
             )
             continue
         missing_asm_noises = _missing_noises(asm_panel_data, case_cfg['noise_levels'])
         if missing_asm_noises:
             print(
                 f"Warning: dataset={data_type}, sample_index={sample_idx} is missing ASM results for "
-                f"noise levels {missing_asm_noises} under {output_root}"
+                f"noise levels {missing_asm_noises} under {asm_output_root}"
             )
         missing_asm_noise_set = set(missing_asm_noises)
         plot_noises = [noise for noise in case_cfg['noise_levels'] if float(noise) not in missing_asm_noise_set]
@@ -328,7 +340,7 @@ def compare_asm_unet_cases(project_root, cfg, cases):
         asm_panel_data = _filter_panel_by_noise(asm_panel_data, plot_noises)
 
         unet_method_to_panel, unet_sample_idx = load_saved_unet_panel_data(
-            output_root=output_root,
+            output_root=unet_output_root,
             data_type=data_type,
             sample_index=idx_cfg,
             noise_levels=plot_noises,
@@ -348,14 +360,14 @@ def compare_asm_unet_cases(project_root, cfg, cases):
             if not panel:
                 print(
                     f"Warning: dataset={data_type}, sample_index={resolved_idx} is missing UNet results "
-                    f"for method={method} under {output_root}"
+                    f"for method={method} under {unet_output_root}"
                 )
                 continue
             missing_method_noises = _missing_noises(panel, plot_noises)
             if missing_method_noises:
                 print(
-                    f"Warning: dataset={data_type}, sample_index={resolved_idx}, method={method} is missing "
-                    f"noise levels {missing_method_noises} under {output_root}"
+                f"Warning: dataset={data_type}, sample_index={resolved_idx}, method={method} is missing "
+                    f"noise levels {missing_method_noises} under {unet_output_root}"
                 )
             filtered_panel = _filter_panel_by_noise(panel, plot_noises)
             if filtered_panel:
@@ -363,12 +375,12 @@ def compare_asm_unet_cases(project_root, cfg, cases):
         if len(method_to_panel) <= 1:
             print(
                 f"Skip dataset={data_type}, sample_index={resolved_idx}: "
-                f"missing saved UNet noise results under {output_root}"
+                f"missing saved UNet noise results under {unet_output_root}"
             )
             continue
 
         group = summary_groups.setdefault(
-            output_root,
+            comparison_output_root,
             {
                 'rows': [],
                 'case_cfgs': [],
@@ -390,7 +402,7 @@ def compare_asm_unet_cases(project_root, cfg, cases):
         contour_fn = asm_ctx['create_smooth_contour']
         mesh_info = asm_ctx['mesh']
 
-        out_dir = os.path.join(output_root, f"sample_{resolved_idx}", data_type, 'comparison')
+        out_dir = os.path.join(comparison_output_root, f"sample_{resolved_idx}", data_type, 'comparison')
         os.makedirs(out_dir, exist_ok=True)
 
         methods_order = ['ASM'] + case_cfg['unet_methods']

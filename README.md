@@ -47,8 +47,43 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   `-- utils/
 |-- data/                         # Local-only datasets, fixed test sets, and processed tensors
 |-- trained_models_mix/           # Local-only checkpoints and histories
-`-- comparison_sample_GN/         # Local-only comparison outputs
+`-- results/                      # Local-only statistics, figures, and ASM/U-Net outputs
 ```
+
+The current `force_load` asset layout is organized by experiment purpose:
+
+```text
+trained_models_mix/force_load/
+|-- std/                          # Standard physical-loss models
+|-- gamma/                        # Physical-term coefficient sweeps
+|-- arch/                         # Architecture sweep models
+|-- ratio/                        # Dataset-ratio sweep models
+`-- final_model/                  # Three selected models for final sample comparisons
+    |-- MSE_UNet_GN_arch_32-64-128/
+    |-- LocMix_UNet_GN_arch_32-64-128_gamma_100000/
+    `-- GloMix_UNet_GN_arch_32-64-128_gamma_10000/
+```
+
+The models under `final_model/` are copied-in, user-selected checkpoints. They
+are used by the selected-sample U-Net, ASM, warm-start, and comparison
+workflows; they are not an additional training experiment group.
+
+The corresponding grouped analysis and comparison outputs are stored below:
+
+```text
+results/force_load/
+|-- standard_models/GN/
+|-- gamma_sweep/GN/{val,test}/
+|-- architecture_sweep/GN/{val,test}/
+|-- loss_ratio_sweep/GN/{val,test}/
+`-- asm_unet_comparison/GN/
+    |-- sample_<index>/<dataset>/comparison/
+    `-- fixed_gamma_<value>/GN/sample_<index>/<dataset>/comparison/
+```
+
+`GN` means the model uses Group Normalization. The analysis directories mirror
+the checkpoint experiment groups, while ASM/U-Net sample outputs are grouped
+under `asm_unet_comparison`.
 
 ## Physical and Data Setup
 
@@ -181,7 +216,12 @@ python data_process.py
 
 This step prepares the tensors and FE residual metadata used by the custom loss functions, including files such as `dof.npy`, `force_ele.npy`, and `force.npy`.
 
-### 3. Train and test U-Net models
+For a complete local evaluation setup, create or obtain the fixed test sets
+under `data/fixed_test_sets/force_load` before running batch test scripts. The
+repository already contains the fixed test-set layout used by the current
+comparison workflow.
+
+### 3. Train U-Net model groups
 
 Single experiment:
 
@@ -215,6 +255,16 @@ In the manuscript terminology these correspond to:
 - `LM-M`
 - `GM-M`
 
+For the grouped studies, use the scripts in this order:
+
+1. `train_model.py` for standard physical-loss experiments and individually configured runs.
+2. `train_architectures_mse.py` for the architecture group.
+3. `train_mse_ratio.py` for the dataset-ratio group.
+
+The architecture group changes the network architecture while using the
+current prepared mix dataset. The ratio group explicitly rebuilds the mix
+dataset for each requested ratio.
+
 ### 4. Run batch U-Net evaluation and postprocessing
 
 Useful entry points under `igfe_unet/script`:
@@ -235,6 +285,27 @@ python test_all_models_noise.py
 python compare_robustness.py
 python compare_gamma.py
 ```
+
+The usual evaluation order is:
+
+```bash
+cd igfe_unet/script
+python val_all_models_noise.py
+python val_all_models_noise_arch.py
+python val_all_models_noise_ratio.py
+python test_all_models_noise.py
+python test_all_models_noise_arch.py
+python test_all_models_noise_ratio.py
+python compare_robustness.py
+python compare_gamma.py
+python compare_architectures.py
+python compare_robustness_ratio.py
+```
+
+The three `test_all_models_noise*.py` scripts use the shared fixed test sets.
+The `val_all_models_noise*.py` scripts evaluate the current prepared dataset
+split and should be run according to the dataset-generation order used for the
+corresponding experiment group.
 
 ### 5. Run the ASM / adjoint baseline
 
@@ -279,6 +350,20 @@ python plot_sample_asm.py
 python plot_true_modulus.py
 ```
 
+For the current selected `final_model/` checkpoints, the fixed-gamma smoke
+comparison can be run with:
+
+```bash
+cd asm_unet_compare
+python run_sample_unet.py
+python run_fixed_gamma_comparison.py
+```
+
+`run_fixed_gamma_comparison.py` runs cold-start ASM with several fixed gamma
+values and compares each result with the saved MSE, LocMixloss, and GloMixloss
+predictions. Each gamma is written to its own directory so ASM results cannot
+overwrite one another.
+
 What each script does:
 
 - `run_sample_unet.py`: save U-Net predictions for selected datasets, sample indices, and noise levels
@@ -297,7 +382,9 @@ Important: the comparison pipeline expects the shared fixed test set under `data
 - U-Net checkpoints and histories are stored under `trained_models_{config_type}/{load_type}/{exp_id}`
 - U-Net comparison statistics and figures are written by the `igfe_unet/postprocess` scripts
 - ASM forward/inverse outputs are saved into run-specific result folders with per-noise subdirectories
-- `asm_unet_compare` writes figures and summaries to configurable output folders such as `comparison_sample` or `comparison_sample_GN`
+- `asm_unet_compare` writes figures and summaries under `results/force_load/asm_unet_comparison/GN/`
+- fixed-gamma ASM comparison outputs are written under
+  `results/force_load/asm_unet_comparison/fixed_gamma_<value>/GN/`
 
 ## Data and Model Assets
 

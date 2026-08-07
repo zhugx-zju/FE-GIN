@@ -6,7 +6,12 @@ root_dir = os.path.abspath(os.path.join(current_dir, '..'))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from postprocess.common import _gn_suffix, find_all_experiments, load_experiment_results
+from postprocess.common import (
+    _gn_suffix,
+    find_all_experiments,
+    load_experiment_results,
+    resolve_analysis_output_dir,
+)
 from postprocess.common import extract_mix_ratio_info
 from postprocess.gamma import (
     save_gamma_statistics,
@@ -24,17 +29,23 @@ TARGET_CONFIG_TYPE = 'mix'
 TARGET_USE_BATCH_NORM = True
 TARGET_ARCHITECTURE = '[2, 32, 64, 128]'
 TARGET_LOAD_TYPE = 'force_load'
+TARGET_EXPERIMENT_GROUP = 'gamma'
 TARGET_METHODS = ['MSE', 'LocResloss', 'GloResloss', 'LocMixloss', 'GloMixloss']
 TARGET_EVAL_TYPES = ['bil', 'exp', 'grf', 'mix']
 EXCLUDE_RATIO_EXPERIMENTS = True
 # Set to None to auto-detect all available noise levels.
 TARGET_NOISE_LEVELS = [0, 2, 4, 6, 8, 10]
 TARGET_HEATMAP_NOISE_LEVELS = TARGET_NOISE_LEVELS
-TARGET_DATA_SPLIT = os.environ.get('TARGET_DATA_SPLIT', 'test')  # options: 'val', 'test'
+TARGET_DATA_SPLIT = os.environ.get('TARGET_DATA_SPLIT', 'val')  # options: 'val', 'test'
 TARGET_DATA_SPLIT = TARGET_DATA_SPLIT.strip().lower()
 if TARGET_DATA_SPLIT not in ['val', 'test']:
     raise ValueError(f"Invalid TARGET_DATA_SPLIT: {TARGET_DATA_SPLIT}. Use 'val' or 'test'.")
-OUTPUT_DIR = os.path.abspath(os.path.join(root_dir, '..', f'gamma_comparison{_gn_suffix(TARGET_USE_BATCH_NORM)}', TARGET_DATA_SPLIT))
+OUTPUT_DIR = resolve_analysis_output_dir(
+    TARGET_EXPERIMENT_GROUP,
+    load_type=TARGET_LOAD_TYPE,
+    use_batch_norm=TARGET_USE_BATCH_NORM,
+    data_split=TARGET_DATA_SPLIT,
+)
 ENABLE_DETAILED_CURVES = True  # set False to skip ECDF/curve/history figures
 # ============================================================================
 
@@ -63,7 +74,7 @@ print(f"  Output dir: {OUTPUT_DIR}")
 print('=' * 90)
 
 print('\nSearching for experiments...')
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 print('\nLoading and filtering experiment results...')
@@ -189,4 +200,3 @@ if ENABLE_DETAILED_CURVES:
 print('\n' + '=' * 90)
 print('Gamma comparison complete!')
 print('=' * 90)
-

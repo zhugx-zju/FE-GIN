@@ -75,6 +75,7 @@ for bil_ratio, exp_ratio, grf_ratio in TARGET_RATIOS:
     cfg = Config(TARGET_CONFIG_TYPE)
     cfg.config_type = TARGET_CONFIG_TYPE
     cfg.load_type = TARGET_LOAD_TYPE
+    cfg.experiment_group = 'ratio'
     cfg.method = TARGET_METHOD
     cfg.preload = False
     cfg.bil_ratio = float(bil_ratio)

@@ -12,6 +12,7 @@ from postprocess.common import (
     extract_mix_ratio_info,
     find_all_experiments,
     load_experiment_results,
+    resolve_analysis_output_dir,
 )
 from postprocess.robustness import (
     plot_ecdf_curve,
@@ -27,6 +28,7 @@ TARGET_CONFIG_TYPE = 'mix'
 TARGET_LOAD_TYPE = 'force_load'
 TARGET_METHOD = 'MSE'
 TARGET_USE_BATCH_NORM = True
+TARGET_EXPERIMENT_GROUP = 'ratio'
 TARGET_RATIO_TAGS = [
     'b0p33_e0p33_g0p34',
     'b0p1_e0p8_g0p1',
@@ -38,7 +40,11 @@ TARGET_RATIO_TAGS = [
     'b0p1_e0p2_g0p7',
     'b0p1_e0p1_g0p8',
 ]
-OUTPUT_DIR = os.path.join(root_dir, '..', f'ratio_robustness_comparison{_gn_suffix(TARGET_USE_BATCH_NORM)}')
+OUTPUT_DIR = resolve_analysis_output_dir(
+    TARGET_EXPERIMENT_GROUP,
+    load_type=TARGET_LOAD_TYPE,
+    use_batch_norm=TARGET_USE_BATCH_NORM,
+)
 # ============================================================================
 
 print("=" * 80)
@@ -54,7 +60,7 @@ print(f"  Output dir: {OUTPUT_DIR}")
 print("=" * 80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 print("\nLoading and filtering experiment results...")

@@ -16,6 +16,7 @@ from model.test import Testing
 TARGET_CONFIG_TYPE = 'mix'
 TARGET_LOAD_TYPE = 'force_load'
 TARGET_USE_BATCH_NORM = True
+TARGET_EXPERIMENT_GROUP = 'std'
 # ============================================================================
 
 print("=" * 80)
@@ -38,7 +39,7 @@ print("Evaluation split: val")
 print("=" * 80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 selected = []
@@ -101,4 +102,3 @@ for (config_type, load_type, exp_id, exp_path), exp_cfg in selected:
 print("\n" + "=" * 80)
 print("Batch validation completed.")
 print("=" * 80)
-

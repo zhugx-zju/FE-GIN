@@ -38,5 +38,7 @@ comparison_sample*/
 comparison_results*/
 comparison_gamma*/
 gamma_comparison*/
+analysis_outputs/
+results/
 history/
 asm_log/Geo_*/

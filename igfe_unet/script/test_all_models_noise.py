@@ -17,6 +17,7 @@ from utils.utils_test import fixed_test_set_exists, get_fixed_test_data_dir
 TARGET_CONFIG_TYPE = 'mix'
 TARGET_LOAD_TYPE = 'force_load'
 TARGET_USE_BATCH_NORM = True
+TARGET_EXPERIMENT_GROUP = 'std'
 # ============================================================================
 
 print("=" * 80)
@@ -43,7 +44,7 @@ else:
 print("=" * 80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 selected = []

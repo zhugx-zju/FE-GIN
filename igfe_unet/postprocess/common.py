@@ -15,6 +15,14 @@ matplotlib.rcParams['font.size'] = 10
 matplotlib.rcParams['axes.linewidth'] = 0.8
 
 _THIS_DIR = Path(__file__).resolve().parent
+EXPERIMENT_GROUPS = ('std', 'gamma', 'arch', 'ratio', 'final_model')
+OUTPUT_GROUP_NAMES = {
+    'std': 'standard_models',
+    'gamma': 'gamma_sweep',
+    'arch': 'architecture_sweep',
+    'ratio': 'loss_ratio_sweep',
+    'final_model': 'final_model',
+}
 _SUBTITLE_FONTSIZE = 11
 _LABEL_FONTSIZE = 10
 
@@ -88,6 +96,36 @@ def _resolve_output_dir(output_dir, subdir):
     p = p.resolve()
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def resolve_analysis_output_dir(
+    experiment_group,
+    load_type='force_load',
+    use_batch_norm=False,
+    data_split=None,
+    root_name='results',
+):
+    """Return the grouped output directory for statistics and figures.
+
+    Outputs are kept separate from model checkpoints while mirroring the
+    model layout:
+        results/{load_type}/{meaningful_group_name}/{group_norm}/{split}/
+    """
+    group = str(experiment_group).strip().lower()
+    if group not in EXPERIMENT_GROUPS:
+        raise ValueError(
+            f"Invalid experiment group '{group}'. "
+            f"Expected one of: {', '.join(EXPERIMENT_GROUPS)}."
+        )
+    output_group = OUTPUT_GROUP_NAMES[group]
+    output_path = _THIS_DIR / '..' / '..' / root_name / str(load_type) / output_group
+    if bool(use_batch_norm):
+        output_path = output_path / 'GN'
+    if data_split is not None:
+        output_path = output_path / str(data_split).strip().lower()
+    output_path = output_path.resolve()
+    output_path.mkdir(parents=True, exist_ok=True)
+    return output_path
 
 
 def _apply_axis_style(ax):
@@ -316,18 +354,68 @@ def _draw_grid_figure(noise_list, all_eval_types, data, global_x_max,
     return fig_file
 
 
-def find_all_experiments(base_dir=None):
+def experiment_group_from_path(exp_path, default='std'):
+    """Infer the grouped experiment folder from a model path."""
+    path = Path(exp_path).resolve()
+    for parent in (path.parent, *path.parents):
+        if parent.name in EXPERIMENT_GROUPS:
+            return parent.name
+    return default
+
+
+def _is_experiment_dir(path):
+    path = Path(path)
+    return (
+        path.is_dir()
+        and (path / 'config.py').exists()
+        and (path / 'model.pt').exists()
+    )
+
+
+def find_all_experiments(base_dir=None, experiment_group=None):
+    """Find both legacy and grouped experiment directories.
+
+    Supported layouts:
+        trained_models_mix/force_load/<experiment_id>/
+        trained_models_mix/force_load/{std,gamma,arch,ratio,final_model}/<experiment_id>/
+    """
     base_path = Path(base_dir) if base_dir is not None else _THIS_DIR / '..' / '..'
+    requested_group = None if experiment_group is None else str(experiment_group).strip().lower()
+    if requested_group is not None and requested_group not in EXPERIMENT_GROUPS:
+        raise ValueError(
+            f"Invalid experiment group '{requested_group}'. "
+            f"Expected one of: {', '.join(EXPERIMENT_GROUPS)}."
+        )
     experiments = []
     for trained_dir in base_path.glob('trained_models_*'):
         config_type = trained_dir.name.replace('trained_models_', '')
         for load_dir in trained_dir.iterdir():
             if not load_dir.is_dir():
                 continue
-            for exp_dir in load_dir.iterdir():
-                if not exp_dir.is_dir():
+            candidates = []
+            for child in load_dir.iterdir():
+                if not child.is_dir():
                     continue
-                experiments.append((config_type, load_dir.name, exp_dir.name, str(exp_dir)))
+                if _is_experiment_dir(child):
+                    # Legacy layout: force_load/<experiment_id>.
+                    candidates.append((child, 'std', False))
+                    continue
+                if child.name in EXPERIMENT_GROUPS:
+                    for exp_dir in child.iterdir():
+                        if _is_experiment_dir(exp_dir):
+                            candidates.append((exp_dir, child.name, True))
+
+            selected = {}
+            for exp_dir, group, is_grouped in candidates:
+                if requested_group is not None and group != requested_group:
+                    continue
+                key = (config_type, load_dir.name, exp_dir.name)
+                previous = selected.get(key)
+                if previous is None or is_grouped > previous[1]:
+                    selected[key] = (exp_dir, is_grouped)
+
+            for (exp_config_type, exp_load_type, exp_id), (exp_dir, _) in selected.items():
+                experiments.append((exp_config_type, exp_load_type, exp_id, str(exp_dir)))
     return experiments
 
 

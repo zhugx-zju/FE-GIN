@@ -20,7 +20,8 @@ from utils.utils_process import Config
 TARGET_CONFIG_TYPE = 'mix'
 TARGET_LOAD_TYPE = 'force_load'
 TARGET_METHOD = 'MSE'
-TARGET_USE_BATCH_NORM = False
+TARGET_USE_BATCH_NORM = True
+TARGET_EXPERIMENT_GROUP = 'arch'
 EXCLUDE_RATIO_EXPERIMENTS = True
 # ============================================================================
 
@@ -46,7 +47,7 @@ print("Evaluation split: val")
 print("=" * 80)
 
 print("\nSearching for experiments...")
-experiments = find_all_experiments()
+experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
 print(f"Found {len(experiments)} total experiments")
 
 selected = []

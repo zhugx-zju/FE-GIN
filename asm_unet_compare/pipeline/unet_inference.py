@@ -708,7 +708,9 @@ def run_unet_inference_cases(project_root, cfg, cases):
 
     summary_rows = []
     model_cache = {}
-    experiments = find_all_experiments()
+    experiments = find_all_experiments(
+        experiment_group=cfg.get('unet_experiment_group', 'std'),
+    )
 
     for raw_case in cases:
         case_start_time = time.time()

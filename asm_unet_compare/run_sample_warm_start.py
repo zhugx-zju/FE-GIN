@@ -53,14 +53,17 @@ CASES = [
         # 'mix_gamma': 300000,
         # 'mix_gamma_by_method': {'GloMixloss': 100000, 'LocMixloss': 300000},
         # 'strict_mix_gamma': True,
-        'warm_start_output_dir': 'comparison_sample',
+        'warm_start_output_dir': 'results/force_load/asm_unet_comparison',
         'use_cold_start_gamma': True,
-        'cold_start_gamma_source_dir': 'comparison_sample',
+        'cold_start_gamma_source_dir': 'results/force_load/asm_unet_comparison',
     },
 ]
 
 
 cfg = get_config()
+# Warm-start keeps its historical GloResloss initializer from the standard
+# experiment group; final-sample U-Net inference uses the dedicated group.
+cfg['unet_experiment_group'] = 'std'
 
 print("=" * 80)
 print("Stage 1: ASM Warm-Start Inversion (Manual Case Mode)")
