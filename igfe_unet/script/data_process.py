@@ -116,7 +116,7 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
     total_test = total_samples - total_train - total_val
 
     dataset_identity = {
-        'format_version': 1,
+        'format_version': 2,
         'cases': list(cases),
         'load_type': load_type,
         'seed': int(seed),
@@ -139,7 +139,11 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
             raise FileExistsError(
                 f'Existing dataset manifest does not match requested configuration: {manifest_path}'
             )
-        required_files = ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
+        required_files = [
+            os.path.join(split_name, filename)
+            for split_name in ['train', 'val', 'test']
+            for filename in ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
+        ]
         missing_files = [name for name in required_files if not os.path.exists(os.path.join(mix_dir, name))]
         if missing_files:
             raise FileNotFoundError(
@@ -157,8 +161,10 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
 
     if output_dir is not None:
         existing_files = [
-            name for name in ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
-            if os.path.exists(os.path.join(mix_dir, name))
+            os.path.join(split_name, filename)
+            for split_name in ['train', 'val', 'test']
+            for filename in ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy']
+            if os.path.exists(os.path.join(mix_dir, split_name, filename))
         ]
         if existing_files:
             raise FileExistsError(
@@ -316,14 +322,49 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         print(f"  DOF: {combined_dof.shape}")
         print(f"  Force_ele: {combined_force_ele.shape}")
 
-    # Save to the requested dataset directory.
+    # Save each split independently. The manifest keeps the source indices and
+    # split sizes, while loaders can address a split without relying on slices.
     os.makedirs(mix_dir, exist_ok=True)
 
-    sio.savemat(os.path.join(mix_dir, 'input.mat'), {'U': combined_input})
-    sio.savemat(os.path.join(mix_dir, 'output.mat'), {'E': combined_output})
-    np.save(os.path.join(mix_dir, 'dof.npy'), combined_dof)
-    np.save(os.path.join(mix_dir, 'force_ele.npy'), combined_force_ele)
-    np.save(os.path.join(mix_dir, 'force.npy'), combined_force)
+    split_arrays = {
+        'train': {
+            'input': train_input,
+            'output': train_output,
+            'dof': train_dof,
+            'force_ele': train_force_ele,
+            'force': train_force,
+        },
+        'val': {
+            'input': val_input,
+            'output': val_output,
+            'dof': val_dof,
+            'force_ele': val_force_ele,
+            'force': val_force,
+        },
+        'test': {
+            'input': test_input,
+            'output': test_output,
+            'dof': test_dof,
+            'force_ele': test_force_ele,
+            'force': test_force,
+        },
+    }
+    split_files = {}
+    for split_name, arrays in split_arrays.items():
+        split_dir = os.path.join(mix_dir, split_name)
+        os.makedirs(split_dir, exist_ok=True)
+        sio.savemat(os.path.join(split_dir, 'input.mat'), {'U': arrays['input']})
+        sio.savemat(os.path.join(split_dir, 'output.mat'), {'E': arrays['output']})
+        np.save(os.path.join(split_dir, 'dof.npy'), arrays['dof'])
+        np.save(os.path.join(split_dir, 'force_ele.npy'), arrays['force_ele'])
+        np.save(os.path.join(split_dir, 'force.npy'), arrays['force'])
+        split_files[split_name] = [
+            f'{split_name}/input.mat',
+            f'{split_name}/output.mat',
+            f'{split_name}/dof.npy',
+            f'{split_name}/force_ele.npy',
+            f'{split_name}/force.npy',
+        ]
 
     manifest = {
         'dataset_identity': dataset_identity,
@@ -337,7 +378,7 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         'case_split_counts': split_counts,
         'datasets': manifest_datasets,
         'merge_permutations': merge_permutations,
-        'files': ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy', 'force.npy'],
+        'files': split_files,
     }
     with open(manifest_path, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2)
@@ -367,24 +408,25 @@ def create_mix_dataset(cases=['exp', 'bil', 'grf'],
         'case_split_counts': split_counts,
     }
 
-# Main execution
-if config_type in ['bil', 'exp', 'layer', 'grf']:
-    # Process single case
-    device = Config(config_type).device
-    process_single_case(config_type, device)
+if __name__ == '__main__':
+    # Main execution
+    if config_type in ['bil', 'exp', 'layer', 'grf']:
+        # Process single case
+        device = Config(config_type).device
+        process_single_case(config_type, device)
 
-elif config_type == 'mix':
-    # Process all cases and create mix dataset
-    device = Config('exp').device  # Use exp config for device setting
+    elif config_type == 'mix':
+        # Process all cases and create mix dataset
+        device = Config('exp').device  # Use exp config for device setting
 
-    # Process each case
-    cases = ['exp', 'bil', 'grf']
-    for case in cases:
-        process_single_case(case, device)
+        # Process each case
+        cases = ['exp', 'bil', 'grf']
+        for case in cases:
+            process_single_case(case, device)
 
-    # Create mix dataset
-    create_mix_dataset(cases)
+        # Create mix dataset
+        create_mix_dataset(cases)
 
-print(f"\n{'='*50}")
-print("Data processing complete!")
-print(f"{'='*50}")
+    print(f"\n{'='*50}")
+    print("Data processing complete!")
+    print(f"{'='*50}")

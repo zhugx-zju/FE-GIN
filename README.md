@@ -105,13 +105,33 @@ overwrite another ratio or the default `data_mix` dataset:
 ```text
 data/mix_ratio_datasets/
 `-- <ratio_tag>/force_load/
-    |-- input.mat
-    |-- output.mat
-    |-- dof.npy
-    |-- force_ele.npy
-    |-- force.npy
+    |-- train/
+    |   |-- input.mat
+    |   |-- output.mat
+    |   |-- dof.npy
+    |   |-- force_ele.npy
+    |   `-- force.npy
+    |-- val/
+    |   |-- input.mat
+    |   |-- output.mat
+    |   |-- dof.npy
+    |   |-- force_ele.npy
+    |   `-- force.npy
+    |-- test/
+    |   |-- input.mat
+    |   |-- output.mat
+    |   |-- dof.npy
+    |   |-- force_ele.npy
+    |   `-- force.npy
     `-- dataset_manifest.json
 ```
+
+The split directories are written by `data_process.py`. Training reads only
+`train/`, validation reads only `val/`, and evaluation reads the fixed test
+set when available, otherwise `test/`. Older datasets that contain only the
+combined files at the dataset root remain readable through the legacy ratio
+slicing fallback. The default `data/data_mix/force_load/` uses the same split
+layout.
 
 ## Requirements
 
@@ -271,13 +291,15 @@ In the manuscript terminology these correspond to:
 
 For the grouped studies, use the scripts in this order:
 
-1. `train_model.py` for standard physical-loss experiments and individually configured runs.
-2. `train_architectures_mse.py` for the architecture group.
-3. `train_mse_ratio.py` for the dataset-ratio group.
+1. `train_architectures_mse.py` selects the architecture using the current fixed mix ratio.
+2. `train_mse_ratio.py` selects the best dataset composition and writes one immutable dataset directory per ratio under `data/mix_ratio_datasets/`.
+3. Manually update the selected `exp_ratio`, `bil_ratio`, and `grf_ratio` in `igfe_unet/configs/config_mix.py`.
+4. Run `data_process.py` again to regenerate the default `data/data_mix/force_load/` dataset with the selected ratio.
+5. Run `train_model.py` for the standard and gamma groups using that final default dataset.
 
-The architecture group changes the network architecture while using the
-current prepared mix dataset. The ratio group builds one immutable dataset
-directory per ratio under `data/mix_ratio_datasets/`.
+The architecture group and the standard/gamma groups use the default `data_mix`
+dataset. Ratio experiments use their own immutable dataset directories, so
+they cannot overwrite the default dataset or another ratio's train/val split.
 
 ### 4. Run batch U-Net evaluation and postprocessing
 

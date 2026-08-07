@@ -108,6 +108,11 @@ def load_test_data(cfg):
         targets = _load_array_from_dir(fixed_dir, 'output', cfg.device)
         return inputs, targets
 
+    if _split_data_exists(cfg, 'test'):
+        inputs = load_data('input', cfg, split='test')
+        targets = load_data('output', cfg, split='test')
+        return inputs, targets
+
     inputs = load_data('input', cfg)
     targets = load_data('output', cfg)
     total = inputs.shape[0]
@@ -117,12 +122,25 @@ def load_test_data(cfg):
 
 
 def load_validation_data(cfg):
+    if _split_data_exists(cfg, 'val'):
+        inputs = load_data('input', cfg, split='val')
+        targets = load_data('output', cfg, split='val')
+        return inputs, targets
+
     inputs = load_data('input', cfg)
     targets = load_data('output', cfg)
     total = inputs.shape[0]
     valid_start = int(total * cfg.train_rto)
     valid_end = valid_start + int(total * cfg.valid_rto)
     return inputs[valid_start:valid_end], targets[valid_start:valid_end]
+
+
+def _split_data_exists(cfg, split):
+    split_dir = Path(cfg.data_path).resolve() / split
+    return all(
+        (split_dir / filename).exists()
+        for filename in ['input.mat', 'output.mat']
+    )
 
 
 # ------------------------------

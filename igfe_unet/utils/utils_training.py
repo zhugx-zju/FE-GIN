@@ -3,10 +3,14 @@ import torch
 import numpy as np
 import os
 from torch.utils.data import DataLoader
-from .utils_process import PartSet
+from .utils_process import InvSet, PartSet
 
-def load_data(filename,cfg):
+def load_data(filename, cfg, split=None):
     data_path = cfg.data_path
+    if split:
+        split_path = os.path.join(data_path, split)
+        if os.path.isdir(split_path):
+            data_path = split_path
     device = cfg.device
     path_mat = os.path.join(data_path, f"{filename}.mat")
     path_npy = os.path.join(data_path, f"{filename}.npy")
@@ -37,10 +41,18 @@ def load_mse_data(cfg):
     # Unified loading for all config types
     input_name = 'input'
     output_name = 'output'
-    input = load_data(input_name, cfg)
-    output = load_data(output_name, cfg)
-    train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
-                                             input, output)
+    if _has_split_data(cfg, 'train') and _has_split_data(cfg, 'val'):
+        train_input = load_data(input_name, cfg, split='train')
+        train_output = load_data(output_name, cfg, split='train')
+        valid_input = load_data(input_name, cfg, split='val')
+        valid_output = load_data(output_name, cfg, split='val')
+        train_set = InvSet(train_input, train_output)
+        valid_set = InvSet(valid_input, valid_output)
+    else:
+        input = load_data(input_name, cfg)
+        output = load_data(output_name, cfg)
+        train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
+                                          input, output)
     # Create DataLoader
     train_loader = DataLoader(train_set, batch_size, shuffle=True)
     valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
@@ -54,16 +66,27 @@ def load_eleres_data(cfg):
     # Unified loading for all config types
     input_name = 'input'
     output_name = 'output'
-    input = load_data(input_name, cfg)
-    output = load_data(output_name, cfg)
-    # Load DOF
-    dof_name = 'dof'
-    dof = load_data(dof_name, cfg)
-    # Load Nodal Forces
-    force_ele_name = 'force_ele'
-    force_ele = load_data(force_ele_name, cfg)
-    train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
-                                             input, output, dof, force_ele)
+    if (_has_split_data(cfg, 'train', ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy'])
+            and _has_split_data(cfg, 'val', ['input.mat', 'output.mat', 'dof.npy', 'force_ele.npy'])):
+        train_set = InvSet(
+            load_data(input_name, cfg, split='train'),
+            load_data(output_name, cfg, split='train'),
+            load_data('dof', cfg, split='train'),
+            load_data('force_ele', cfg, split='train'),
+        )
+        valid_set = InvSet(
+            load_data(input_name, cfg, split='val'),
+            load_data(output_name, cfg, split='val'),
+            load_data('dof', cfg, split='val'),
+            load_data('force_ele', cfg, split='val'),
+        )
+    else:
+        input = load_data(input_name, cfg)
+        output = load_data(output_name, cfg)
+        dof = load_data('dof', cfg)
+        force_ele = load_data('force_ele', cfg)
+        train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
+                                          input, output, dof, force_ele)
     # Create DataLoader
     train_loader = DataLoader(train_set, batch_size, shuffle=True)
     valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
@@ -77,16 +100,27 @@ def load_totres_data(cfg):
     # Unified loading for all config types
     input_name = 'input'
     output_name = 'output'
-    input = load_data(input_name, cfg)
-    output = load_data(output_name, cfg)
-    # Load DOF
-    dof_name = 'dof'
-    dof = load_data(dof_name, cfg)
-    # Load force
-    force_name = 'force'
-    force = load_data(force_name, cfg)
-    train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
-                                             input, output, dof, force)
+    if (_has_split_data(cfg, 'train', ['input.mat', 'output.mat', 'dof.npy', 'force.npy'])
+            and _has_split_data(cfg, 'val', ['input.mat', 'output.mat', 'dof.npy', 'force.npy'])):
+        train_set = InvSet(
+            load_data(input_name, cfg, split='train'),
+            load_data(output_name, cfg, split='train'),
+            load_data('dof', cfg, split='train'),
+            load_data('force', cfg, split='train'),
+        )
+        valid_set = InvSet(
+            load_data(input_name, cfg, split='val'),
+            load_data(output_name, cfg, split='val'),
+            load_data('dof', cfg, split='val'),
+            load_data('force', cfg, split='val'),
+        )
+    else:
+        input = load_data(input_name, cfg)
+        output = load_data(output_name, cfg)
+        dof = load_data('dof', cfg)
+        force = load_data('force', cfg)
+        train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
+                                          input, output, dof, force)
     # Create DataLoader
     train_loader = DataLoader(train_set, batch_size, shuffle=True)
     valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
@@ -98,4 +132,12 @@ def save_train(train, valid, filename):
          np.array(valid).reshape((-1,1)))
          )
     np.savetxt(filename, training_data)
+
+
+def _has_split_data(cfg, split, required_files=None):
+    split_path = os.path.join(cfg.data_path, split)
+    required = required_files or ['input.mat', 'output.mat']
+    return os.path.isdir(split_path) and all(
+        os.path.exists(os.path.join(split_path, filename)) for filename in required
+    )
 
