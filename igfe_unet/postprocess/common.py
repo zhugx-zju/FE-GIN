@@ -23,8 +23,8 @@ OUTPUT_GROUP_NAMES = {
     'ratio': 'loss_ratio_sweep',
     'final_model': 'final_model',
 }
-_SUBTITLE_FONTSIZE = 11
-_LABEL_FONTSIZE = 10
+_SUBTITLE_FONTSIZE = 20
+_LABEL_FONTSIZE = 17
 
 LOSS_COLORS = {
     'MSE': '#e41a1c',
@@ -129,7 +129,8 @@ def resolve_analysis_output_dir(
 
 
 def _apply_axis_style(ax):
-    ax.tick_params(direction='in', which='both', top=False, right=False)
+    ax.tick_params(direction='in', which='both', top=False, right=False,
+                   labelsize=15)
     ax.grid(False)
     for spine in ax.spines.values():
         spine.set_linewidth(0.8)
@@ -174,7 +175,7 @@ def _dataset_title(eval_type, panel_idx=None):
     return f'({chr(97 + panel_idx)}) {name}'
 
 
-def _top_shared_legend_kwargs(label_count, fontsize=9):
+def _top_shared_legend_kwargs(label_count, fontsize=11):
     return {
         'loc': 'upper left',
         'bbox_to_anchor': (0.06, 0.995, 0.88, 0.001),
@@ -185,11 +186,13 @@ def _top_shared_legend_kwargs(label_count, fontsize=9):
     }
 
 
-def _add_panel_labels(axes_flat, x=-0.12, y=1.08, fontsize=11):
+def _add_panel_labels(axes_flat, x=-0.16, y=1.08, fontsize=15,
+                      fontweight='normal', fontstyle='normal'):
     for idx, ax in enumerate(axes_flat):
         ax.text(x, y, f'({chr(97 + idx)})',
                 transform=ax.transAxes, fontsize=fontsize,
-                fontweight='bold', va='top', ha='left')
+                fontweight=fontweight, fontstyle=fontstyle,
+                va='bottom', ha='left')
 
 
 def _parse_test_stem(stem):
@@ -323,15 +326,16 @@ def _draw_grid_figure(noise_list, all_eval_types, data, global_x_max,
             draw_fn(ax, eval_type, noise_level, data, global_x_max,
                     show_legend=not shared_legend)
             if row == 0:
-                ax.set_title(_dataset_title(eval_type), fontsize=11, fontweight='bold')
+                ax.set_title(_dataset_title(eval_type), fontsize=18,
+                             fontweight='normal')
             if col == 0:
                 if show_noise_label:
                     if ylabel_label:
-                        ax.set_ylabel(f'{noise_label}\n{ylabel_label}', fontsize=10)
+                        ax.set_ylabel(f'{noise_label}\n{ylabel_label}', fontsize=16)
                     else:
-                        ax.set_ylabel(noise_label, fontsize=10)
+                        ax.set_ylabel(noise_label, fontsize=16)
                 else:
-                    ax.set_ylabel(ylabel_label, fontsize=10)
+                    ax.set_ylabel(ylabel_label, fontsize=16)
             else:
                 ax.set_ylabel('')
     _add_panel_labels([axes[row, 0] for row in range(n_rows)],
@@ -350,7 +354,10 @@ def _draw_grid_figure(noise_list, all_eval_types, data, global_x_max,
         plt.tight_layout()
     fig_file = output_path / filename
     plt.savefig(fig_file, dpi=600, bbox_inches='tight')
+    pdf_file = fig_file.with_suffix('.pdf')
+    plt.savefig(pdf_file, bbox_inches='tight')
     plt.close()
+    print(f"Saved PDF: {pdf_file}")
     return fig_file
 
 

@@ -36,6 +36,31 @@ _MARKER_FAMILY = ('o', 's', '^')
 _TARGET_MARKERS_PER_CURVE = 8
 _CURVE_LINEWIDTH = 1.2
 _CURVE_ALPHA = 0.95
+_METHOD_ECDF_STYLES = {
+    'MSE-M': {
+        'color': '#e41a1c',
+        'linestyle': '-',
+        'marker': 'o',
+    },
+    'LE-M': {
+        'color': '#377eb8',
+        'linestyle': '--',
+        'marker': 's',
+    },
+    'GE-M': {
+        'color': '#4daf4a',
+        'linestyle': '-.',
+        'marker': '^',
+    },
+}
+
+
+def _save_figure_pair(fig, fig_file, dpi):
+    """Save raster and vector versions using the same figure state."""
+    fig.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    pdf_file = Path(fig_file).with_suffix('.pdf')
+    fig.savefig(pdf_file, bbox_inches='tight')
+    print(f"Saved PDF: {pdf_file}")
 
 
 def _legend_ratio_order():
@@ -112,7 +137,7 @@ def _build_label_styles(data):
     return label_styles
 
 
-def _shared_legend_kwargs(fontsize=9):
+def _shared_legend_kwargs(fontsize=11):
     return {
         'loc': 'upper left',
         'bbox_to_anchor': (0.04, 0.955, 0.94, 0.001),
@@ -215,15 +240,24 @@ def _draw_ecdf_panel(ax, eval_type, noise_level, data, global_x_max, label_mode=
                 zorder=style['zorder'],
             )
         else:
+            style = _METHOD_ECDF_STYLES.get(label, {
+                'color': _method_color(label),
+                'linestyle': '-',
+                'marker': None,
+            })
             ax.plot(errors, y, label=label,
-                    color=_method_color(label), linewidth=1.5)
-    ax.set_xlabel(r'Relative $L_1$ Error (%)')
+                    color=style['color'], linestyle=style['linestyle'],
+                    linewidth=1.2, marker=style['marker'],
+                    markersize=3.4, markerfacecolor='white',
+                    markeredgecolor=style['color'], markeredgewidth=0.9,
+                    markevery=_sparse_markevery(len(errors)))
+    ax.set_xlabel(r'Relative $L_1$ Error (%)', fontsize=17)
     ax.set_ylabel('ECDF')
     ax.set_xlim(0, X_AXIS_MAX_PERCENT)
-    ax.set_xticks(np.arange(0, X_AXIS_MAX_PERCENT + 1, 1))
+    ax.set_xticks(np.arange(0, X_AXIS_MAX_PERCENT + 1, 2))
     ax.set_ylim(0, 1)
     if show_legend:
-        _legend_with_frame(ax, fontsize=8, loc=legend_loc)
+        _legend_with_frame(ax, fontsize=10, loc=legend_loc)
     _apply_axis_style(ax)
 
 
@@ -240,18 +274,16 @@ def plot_ecdf_curve(experiments_data, output_dir=None, filename_suffix='', label
     all_eval_types = sorted({et for nl_data in data.values() for et in nl_data})
 
     if label_mode == 'ratio':
-        ecdf_legend_kwargs = _shared_legend_kwargs(fontsize=10)
+        ecdf_legend_kwargs = _shared_legend_kwargs(fontsize=12)
         draw_ecdf = lambda ax, eval_type, noise_level, d, gx, show_legend=True: _draw_ecdf_panel(
             ax, eval_type, noise_level, d, gx, label_mode=label_mode,
             label_styles=label_styles, show_legend=show_legend
         )
         use_shared_legend = True
     else:
-        first_noise_level = noise_levels[0]
         draw_ecdf = lambda ax, eval_type, noise_level, d, gx, show_legend=True: _draw_ecdf_panel(
             ax, eval_type, noise_level, d, gx,
-            show_legend=(noise_level == first_noise_level and str(eval_type).lower() == 'bil'),
-            legend_loc='upper right',
+            show_legend=False,
         )
         ecdf_legend_kwargs = None
         use_shared_legend = False
@@ -260,7 +292,12 @@ def plot_ecdf_curve(experiments_data, output_dir=None, filename_suffix='', label
                                  output_path, f'ecdf_combined{filename_suffix}.png',
                                  show_noise_label=True,
                                  shared_legend=use_shared_legend,
-                                 legend_kwargs=ecdf_legend_kwargs)
+                                 legend_kwargs=ecdf_legend_kwargs,
+                                 panel_label_kwargs={
+                                     'x': -0.13,
+                                     'y': 1.06,
+                                     'fontsize': 18,
+                                 })
     print(f"Saved ECDF: {fig_file}")
     saved_files.append(str(fig_file))
 
@@ -368,7 +405,7 @@ def plot_ratio_mix_heatmap_from_csv(csv_file, output_dir=None,
 
     plt.tight_layout()
     fig_file = output_path / filename
-    plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    _save_figure_pair(fig, fig_file, dpi)
     plt.close()
     print(f"Saved MIX mean heatmap: {fig_file}")
     return str(fig_file)
@@ -499,7 +536,7 @@ def plot_ratio_representative_trends_from_csv(
     # fig.suptitle('Representative Training-Ratio Effects Across Test Subsets', y=1.07)
     plt.tight_layout()
     fig_file = output_path / filename
-    plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    _save_figure_pair(fig, fig_file, dpi)
     plt.close()
     print(f"Saved representative ratio trends: {fig_file}")
     return str(fig_file)

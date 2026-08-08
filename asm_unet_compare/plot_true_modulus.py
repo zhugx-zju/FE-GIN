@@ -3,6 +3,7 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '..'))
@@ -118,7 +119,7 @@ def plot_true_modulus_cases(project_root, cfg, cases):
         print("No true-modulus cases to plot.")
         return
 
-    fig, axes = plt.subplots(1, len(panels), figsize=(3.8 * len(panels), 3.6))
+    fig, axes = plt.subplots(1, len(panels), figsize=(3.8 * len(panels), 3.4))
     axes = np.atleast_1d(axes)
 
     for panel_idx, (panel, ax) in enumerate(zip(panels, axes)):
@@ -138,22 +139,29 @@ def plot_true_modulus_cases(project_root, cfg, cases):
         ax.axis('equal')
         ax.axis('off')
 
-        ax.set_title(panel['title'], fontsize=11, fontweight='bold', pad=6)
+        ax.set_title(panel['title'], fontsize=20, fontweight='normal', pad=6)
         colorbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.025)
-        # colorbar.set_ticks(np.linspace(vmin, vmax, 6))
-        colorbar.set_label('Modulus (MPa)', fontsize=9, fontweight='bold')
-        colorbar.ax.tick_params(labelsize=8)
+        colorbar.ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        colorbar.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        colorbar.set_label('Modulus (MPa)', fontsize=15, fontweight='normal')
+        colorbar.ax.tick_params(
+            direction='in', which='both', labelsize=15, length=4.0, width=0.8
+        )
+        colorbar.outline.set_linewidth(0.8)
 
-    _add_panel_labels(list(axes), x=-0.10, y=1.06, fontsize=11)
+    _add_panel_labels(list(axes), x=-0.10, y=1.06, fontsize=18)
     # fig.suptitle('True Modulus Fields', fontsize=14, fontweight='bold', y=0.98)
-    fig.subplots_adjust(left=0.055, right=0.975, bottom=0.06, top=0.87, wspace=0.16)
+    fig.subplots_adjust(left=0.055, right=0.975, bottom=0.06, top=0.87, wspace=0.30)
 
     case_tag = '_'.join(f"{panel['data_type']}{panel['resolved_idx']}" for panel in panels)
     save_path = os.path.join(output_root, f'true_modulus_{case_tag}{filename_suffix}.png')
     fig.savefig(save_path, dpi=cfg['dpi'], bbox_inches='tight', pad_inches=0.03)
+    pdf_path = os.path.splitext(save_path)[0] + '.pdf'
+    fig.savefig(pdf_path, bbox_inches='tight', pad_inches=0.03)
     plt.close(fig)
 
     print(f"Saved combined true modulus plot: {save_path}")
+    print(f"Saved combined true modulus PDF: {pdf_path}")
     for panel in panels:
         print(
             f"[{panel['case_idx']}] dataset={panel['data_type']}, "

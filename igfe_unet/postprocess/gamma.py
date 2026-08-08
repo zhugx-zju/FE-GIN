@@ -2,6 +2,7 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter, LogLocator
 from pathlib import Path
 
 from .common import (
@@ -22,6 +23,14 @@ from .common import (
 
 _NCS_HEATMAP_CMAP = 'Blues'
 _NCS_HEATMAP_LEVELS = 7
+
+
+def _save_figure_pair(fig, fig_file, dpi):
+    """Save every gamma figure in both raster and vector formats."""
+    fig.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    pdf_file = Path(fig_file).with_suffix('.pdf')
+    fig.savefig(pdf_file, bbox_inches='tight')
+    print(f"Saved PDF: {pdf_file}")
 
 
 def _float_in_values(value, values, tol=1e-9):
@@ -173,6 +182,7 @@ def save_gamma_statistics(experiments_data, output_dir=None,
     stats_rows = []
     for (method, gamma, noise_level, eval_type), errors in grouped.items():
         std = float(np.std(errors))
+        p05, p95 = np.percentile(errors, [5.0, 95.0])
         stats_rows.append({
             'method': method,
             'gamma': gamma,
@@ -181,9 +191,13 @@ def save_gamma_statistics(experiments_data, output_dir=None,
             'mean': float(np.mean(errors)),
             'std': std,
             'variance': std ** 2,
+            'p05': float(p05),
+            'p95': float(p95),
             'mean_pct': float(np.mean(errors) * 100.0),
             'std_pct': float(std * 100.0),
             'variance_pct': float((std * 100.0) ** 2),
+            'p05_pct': float(p05 * 100.0),
+            'p95_pct': float(p95 * 100.0),
             'n_samples': int(len(errors)),
         })
 
@@ -281,7 +295,7 @@ def plot_gamma_ecdf_panels(experiments_data, output_dir=None,
                     ax.set_title(
                         _dataset_title(eval_type),
                         fontsize=_SUBTITLE_FONTSIZE,
-                        fontweight='bold',
+                        fontweight='normal',
                         pad=8,
                     )
 
@@ -297,13 +311,18 @@ def plot_gamma_ecdf_panels(experiments_data, output_dir=None,
                 ax.set_ylim(0, 1)
                 _apply_axis_style(ax)
 
-        _add_panel_labels([axes[r, 0] for r in range(n_rows)])
+        _add_panel_labels(
+            [axes[r, 0] for r in range(n_rows)],
+            x=-0.16,
+            y=1.06,
+            fontsize=18,
+        )
         handles, labels = _collect_unique_legend_items([axes[r, c] for r in range(n_rows) for c in range(n_cols)])
-        _figure_legend_with_frame(fig, handles, labels, **_top_shared_legend_kwargs(len(labels), fontsize=9))
+        _figure_legend_with_frame(fig, handles, labels, **_top_shared_legend_kwargs(len(labels), fontsize=11))
         plt.tight_layout(rect=(0, 0, 1, 0.945))
         method_tag = 'locmix' if mix_method == 'LocMixloss' else 'glomix'
         fig_file = output_path / f'ecdf_gamma_{method_tag}{filename_suffix}.png'
-        plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+        _save_figure_pair(fig, fig_file, dpi)
         plt.close()
         print(f"Saved gamma ECDF: {fig_file}")
         saved_files.append(str(fig_file))
@@ -360,24 +379,45 @@ def plot_gamma_mean_std_bars(experiments_data, output_dir=None,
 
                 if gamma_values:
                     means = []
-                    stds = []
+                    p05_values = []
+                    p95_values = []
                     for gamma_idx, gamma in enumerate(gamma_values):
                         errors = grouped[(mix_method, gamma, noise_level, eval_type)] * 100.0
+                        p05, p95 = np.percentile(errors, [5.0, 95.0])
                         means.append(float(np.mean(errors)))
-                        stds.append(float(np.std(errors)))
+                        p05_values.append(float(p05))
+                        p95_values.append(float(p95))
                     x = np.array(gamma_values, dtype=float)
                     means = np.array(means, dtype=float)
-                    stds = np.array(stds, dtype=float)
+                    p05_values = np.array(p05_values, dtype=float)
+                    p95_values = np.array(p95_values, dtype=float)
+                    percentile_error = np.vstack([
+                        means - p05_values,
+                        p95_values - means,
+                    ])
                     main_color = LOSS_COLORS.get(mix_method, '#333333')
                     ax.errorbar(
-                        x, means, yerr=stds, fmt='-o',
-                        markersize=3.8, linewidth=1.4, elinewidth=1.1, capsize=2.8,
+                        x, means, yerr=percentile_error, fmt='-o',
+                        markersize=4.2, linewidth=1.2, elinewidth=0.9, capsize=2.6,
                         color=main_color,
                         label=f"{METHOD_DISPLAY.get(mix_method, mix_method)}",
                     )
                     ax.set_xscale('log')
-                    ax.set_xticks(x)
-                    ax.set_xticklabels(_gamma_log10_labels(x), rotation=0)
+                    major_gamma_values = np.array(
+                        [10.0 ** exponent for exponent in (1, 3, 5, 7)],
+                        dtype=float,
+                    )
+                    ax.set_xticks(major_gamma_values)
+                    ax.set_xticklabels(
+                        _gamma_log10_labels(major_gamma_values), rotation=0
+                    )
+                    ax.xaxis.set_minor_locator(
+                        LogLocator(base=10.0, subs=(2.0, 4.0, 6.0, 8.0), numticks=100)
+                    )
+                    ax.tick_params(axis='x', which='major', direction='in',
+                                   length=4.0, width=0.8)
+                    ax.tick_params(axis='x', which='minor', direction='in',
+                                   length=2.0, width=0.6)
                 else:
                     ax.text(0.5, 0.5, 'No data', transform=ax.transAxes, ha='center', va='center')
 
@@ -387,14 +427,14 @@ def plot_gamma_mean_std_bars(experiments_data, output_dir=None,
                         continue
                     errors_base = grouped[key] * 100.0
                     mean_base = float(np.mean(errors_base))
-                    std_base = float(np.std(errors_base))
+                    p05_base, p95_base = np.percentile(errors_base, [5.0, 95.0])
                     base_color = LOSS_COLORS.get(base_method, '#333333')
-                    if gamma_values and std_base > 0.0:
+                    if gamma_values and p95_base > p05_base:
                         x_band = np.array([min(gamma_values), max(gamma_values)], dtype=float)
                         ax.fill_between(
                             x_band,
-                            mean_base - std_base,
-                            mean_base + std_base,
+                            p05_base,
+                            p95_base,
                             color=base_color,
                             alpha=0.10,
                             linewidth=0.0,
@@ -403,35 +443,39 @@ def plot_gamma_mean_std_bars(experiments_data, output_dir=None,
                     ax.axhline(
                         y=mean_base,
                         color=base_color,
-                        linewidth=1.6,
+                        linewidth=1.2,
                         linestyle=ls,
                         zorder=2,
-                        label=f"{METHOD_DISPLAY.get(base_method, base_method)}"
+                        label='_nolegend_',
                     )
 
                 if row_idx == 0:
                     ax.set_title(
                         _dataset_title(eval_type),
                         fontsize=_SUBTITLE_FONTSIZE,
-                        fontweight='bold',
+                        fontweight='normal',
                         pad=8,
                     )
 
-                ax.set_xlabel(r'$\log_{10}(\lambda)$', fontsize=_LABEL_FONTSIZE)
+                ax.set_xlabel(r'$\log_{10}(\lambda)$', fontsize=19)
                 if col_idx == 0:
-                    noise_text = f"Noise {int(noise_level)}%" if float(noise_level).is_integer() else f"Noise {noise_level:g}%"
-                    ax.set_ylabel(f'{noise_text}\nRelative $L_1$ Error (%)', fontsize=_LABEL_FONTSIZE)
+                    ax.set_ylabel(r'Relative $L_1$ Error (%)', fontsize=15)
                 else:
                     ax.set_ylabel('')
+                ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+                ax.set_ylim(bottom=0.0)
                 _apply_axis_style(ax)
 
-        _add_panel_labels([axes[r, 0] for r in range(n_rows)])
-        handles, labels = _collect_unique_legend_items([axes[r, c] for r in range(n_rows) for c in range(n_cols)])
-        _figure_legend_with_frame(fig, handles, labels, **_top_shared_legend_kwargs(len(labels), fontsize=9))
-        plt.tight_layout(rect=(0, 0, 1, 0.945))
+        _add_panel_labels(
+            [axes[r, 0] for r in range(n_rows)],
+            x=-0.16,
+            y=1.16,
+            fontsize=18,
+        )
+        plt.tight_layout(rect=(0, 0, 1, 0.99))
         method_tag = 'locmix' if mix_method == 'LocMixloss' else 'glomix'
         fig_file = output_path / f'gamma_curve_mean_std_{method_tag}{filename_suffix}.png'
-        plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+        _save_figure_pair(fig, fig_file, dpi)
         plt.close()
         print(f"Saved gamma curve plot: {fig_file}")
         saved_files.append(str(fig_file))
@@ -534,12 +578,17 @@ def plot_gamma_history_2x2(experiments_data, output_dir=None,
         ax_mae.legend(fontsize=8, frameon=True, edgecolor='black', facecolor='white')
         _apply_axis_style(ax_mae)
 
-    _add_panel_labels([axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]])
+    _add_panel_labels(
+        [axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]],
+        x=-0.16,
+        y=1.06,
+        fontsize=18,
+    )
     plt.tight_layout()
     if filename_suffix and filename.endswith('.png'):
         filename = f"{filename[:-4]}{filename_suffix}.png"
     fig_file = output_path / filename
-    plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    _save_figure_pair(fig, fig_file, dpi)
     plt.close()
     print(f"Saved gamma history plot: {fig_file}")
     return str(fig_file)
@@ -680,8 +729,8 @@ def plot_gamma_error_heatmaps(experiments_data, output_dir=None,
 
         n_cols = len(eval_order)
         panel_width = 4.4
-        panel_height = max(3.7, 0.62 * len(noises_found) + 1.4)
-        annotation_fontsize = max(6.5, min(8.0, 10.0 - 0.22 * max(len(gamma_values), len(noises_found))))
+        panel_height = max(3.7, 0.60 * len(noises_found) + 1.4)
+        annotation_fontsize = 12.0
         fig, axes = plt.subplots(
             1,
             n_cols,
@@ -723,18 +772,18 @@ def plot_gamma_error_heatmaps(experiments_data, output_dir=None,
                         color=txt_color,
                     )
 
-            ax.set_title(_dataset_title(eval_type), fontsize=_SUBTITLE_FONTSIZE, fontweight='bold', pad=8)
+            ax.set_title(_dataset_title(eval_type), fontsize=_SUBTITLE_FONTSIZE, fontweight='normal', pad=8)
             ax.set_xticks(np.arange(len(gamma_values)))
             ax.set_xticklabels(_gamma_log10_labels(gamma_values))
             ax.set_yticks(np.arange(len(noises_found)))
-            ax.set_yticklabels([f'{_noise_tag(v)}%' for v in noises_found])
+            ax.set_yticklabels([_noise_tag(v) for v in noises_found])
             ax.set_xlabel(r'$\log_{10}(\lambda)$', fontsize=_LABEL_FONTSIZE)
-            ax.set_ylabel('Noise' if idx == 0 else '', fontsize=_LABEL_FONTSIZE)
+            ax.set_ylabel('Noise level (%)' if idx == 0 else '', fontsize=_LABEL_FONTSIZE)
             ax.tick_params(axis='both', which='both', length=0)
             ax.invert_yaxis()
             _apply_axis_style(ax)
 
-        _add_panel_labels(axes_flat)
+        _add_panel_labels(axes_flat, x=-0.16, y=1.06, fontsize=18)
 
         if color_ref is not None:
             cax = fig.add_axes([0.92, 0.18, 0.012, 0.66])
@@ -745,7 +794,7 @@ def plot_gamma_error_heatmaps(experiments_data, output_dir=None,
         method_tag = 'locmix' if mix_method == 'LocMixloss' else 'glomix'
         noise_tag = "_".join([_noise_tag(v) for v in noises_found])
         fig_file = output_path / f'gamma_heatmap_{method_tag}_noise_{noise_tag}{filename_suffix}.png'
-        plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+        _save_figure_pair(fig, fig_file, dpi)
         plt.close()
         print(f"Saved gamma heatmap: {fig_file}")
         saved_files.append(str(fig_file))

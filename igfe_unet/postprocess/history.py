@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LogLocator, MaxNLocator, NullLocator
+from matplotlib.patches import ConnectionPatch
 
 from .common import (
     _resolve_output_dir,
@@ -16,14 +18,32 @@ TRAIN_CURVE_COLOR = '#1f77b4'
 VALID_CURVE_COLOR = '#ff7f0e'
 
 
-def _loss_curve_styles(n_points, linewidth=1.5):
+def _apply_history_tick_limits(ax, log_y=False):
+    """Keep the paper figure readable with 4-6 major ticks per axis."""
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
+    if log_y:
+        ax.yaxis.set_major_locator(
+            LogLocator(base=10, subs=(1.0,), numticks=6)
+        )
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.yaxis.set_minor_locator(
+            LogLocator(base=10, subs=np.arange(2, 10), numticks=100)
+        )
+        ax.tick_params(axis='y', which='minor', direction='in',
+                       length=2.5, width=0.6)
+    else:
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.minorticks_off()
+
+
+def _loss_curve_styles(n_points, train_linewidth=1.5, valid_linewidth=1.2):
     train_style = {
         'linestyle': '-',
-        'linewidth': linewidth,
+        'linewidth': train_linewidth,
     }
     valid_style = {
         'linestyle': '-',
-        'linewidth': linewidth,
+        'linewidth': valid_linewidth,
     }
     return train_style, valid_style
 
@@ -47,10 +67,11 @@ def plot_mae_history(experiments_data, output_dir=None, filename_suffix=''):
         best_ep = int(np.argmin(results['valid_mae'])) + 1
         ax.axvline(x=best_ep, color=color, linestyle=':', linewidth=0.8, alpha=0.7)
 
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('MAE')
-    ax.set_title('MAE Training History by Loss Function')
-    _legend_with_frame(ax, fontsize=9)
+    ax.set_xlabel('Epoch', fontsize=17)
+    ax.set_ylabel('MAE', fontsize=17)
+    ax.set_title('MAE Training History by Loss Function', fontsize=18,
+                 fontweight='normal')
+    _legend_with_frame(ax, fontsize=11)
     _apply_axis_style(ax)
     plt.tight_layout()
     fig_file = output_path / f'mae_history{filename_suffix}.png'
@@ -85,9 +106,9 @@ def plot_loss_history(experiments_data, output_dir=None, filename_suffix=''):
         ax.plot(epochs, results['train_loss'], color=TRAIN_CURVE_COLOR, label='Train.', **train_style)
         ax.plot(epochs, results['valid_loss'], color=VALID_CURVE_COLOR, label='Val.', **valid_style)
         ax.set_yscale('log')
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Loss')
-        ax.set_title(label)
+        ax.set_xlabel('Epoch', fontsize=17)
+        ax.set_ylabel('Loss', fontsize=17)
+        ax.set_title(label, fontsize=18, fontweight='normal')
         if results.get('valid_mae') is not None:
             best_ep = int(np.argmin(results['valid_mae'])) + 1
         elif results.get('valid_loss') is not None:
@@ -96,7 +117,7 @@ def plot_loss_history(experiments_data, output_dir=None, filename_suffix=''):
             best_ep = None
         if best_ep is not None:
             ax.axvline(x=best_ep, color='#666666', linestyle=':', linewidth=0.8, label='best epoch')
-        _legend_with_frame(ax, fontsize=9)
+        _legend_with_frame(ax, fontsize=11)
         _apply_axis_style(ax)
 
     for idx in range(n, n_rows * n_cols):
@@ -145,10 +166,11 @@ def plot_history_row(experiments_data, target_methods=None, output_dir=None,
             print(f"  - {method}")
         return None
 
-    fig, axes = plt.subplots(1, 4, figsize=(24, 5.2), squeeze=False)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9), squeeze=False)
+    loss_axes = [axes[0, 0], axes[0, 1], axes[1, 0]]
 
     for col, method in enumerate(target_methods):
-        ax = axes[0, col]
+        ax = loss_axes[col]
         results = best_by_method[method]['results']
         train_loss = results['train_loss']
         valid_loss = results['valid_loss']
@@ -163,13 +185,14 @@ def plot_history_row(experiments_data, target_methods=None, output_dir=None,
         ax.plot(epochs, train_loss[:best_ep], color=TRAIN_CURVE_COLOR, label='Train.', **train_style)
         ax.plot(epochs, valid_loss[:best_ep], color=VALID_CURVE_COLOR, label='Val.', **valid_style)
         ax.set_yscale('log')
-        ax.set_title(method_name)
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Loss')
-        _legend_with_frame(ax, fontsize=9)
+        ax.set_title(method_name, fontsize=18, fontweight='normal')
+        ax.set_xlabel('Epoch', fontsize=17)
+        ax.set_ylabel('Loss', fontsize=17)
+        _legend_with_frame(ax, fontsize=11)
         _apply_axis_style(ax)
+        _apply_history_tick_limits(ax, log_y=True)
 
-    ax = axes[0, 3]
+    ax = axes[1, 1]
     val_mae_curves = []
     for method in target_methods:
         results = best_by_method[method]['results']
@@ -185,10 +208,11 @@ def plot_history_row(experiments_data, target_methods=None, output_dir=None,
                 linewidth=1.5, label=method_name)
         val_mae_curves.append((epochs, val_curve, color))
 
-    ax.set_title('MAE Comparison on Validation Set')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('MAE')
-    _legend_with_frame(ax, fontsize=9)
+    ax.set_title('MAE Comparison on Validation Set', fontsize=18, fontweight='normal')
+    ax.set_xlabel('Epoch', fontsize=17)
+    ax.set_ylabel('MAE', fontsize=17)
+    _legend_with_frame(ax, fontsize=11)
+    _apply_history_tick_limits(ax)
 
     if val_mae_curves:
         end_epochs = [int(epochs[-1]) for epochs, _, _ in val_mae_curves if len(epochs) > 0]
@@ -220,20 +244,59 @@ def plot_history_row(experiments_data, target_methods=None, output_dir=None,
                     axins.plot(epochs[mask], curve[mask], color=color, linestyle='-', linewidth=1.2)
             axins.set_xlim(zoom_start, common_end)
             axins.set_ylim(max(0.0, y_min - y_pad), y_max + y_pad)
-            axins.tick_params(labelsize=7, direction='in', top=False, right=False)
+            axins.set_title('Late Epochs', fontsize=15, fontweight='normal', pad=2)
+            axins.tick_params(labelsize=11, direction='in', top=False, right=False)
             axins.grid(False)
             for spine in axins.spines.values():
                 spine.set_linewidth(0.8)
-            ax.indicate_inset_zoom(axins, edgecolor='black', alpha=1.0)
+            inset_indicator = ax.indicate_inset_zoom(
+                axins, edgecolor='black', alpha=1.0
+            )
+            connectors = getattr(inset_indicator, 'connectors', None)
+            if connectors is None:
+                connectors = inset_indicator[1]
+            for connector in connectors:
+                connector.set_visible(False)
+
+            rectangle = inset_indicator.rectangle
+            rect_x, rect_y = rectangle.get_xy()
+            rect_right = rect_x + rectangle.get_width()
+            rect_top = rect_y + rectangle.get_height()
+            # Keep the left connector attached to the zoom box upper-right
+            # corner, while the right connector keeps its lower-right anchor.
+            left_connector = ConnectionPatch(
+                xyA=(0, 0), coordsA=axins.transAxes,
+                xyB=(rect_right, rect_top), coordsB=ax.transData,
+                arrowstyle='-', edgecolor='black', linewidth=0.8,
+                alpha=1.0,
+            )
+            right_connector = ConnectionPatch(
+                xyA=(1, 0), coordsA=axins.transAxes,
+                xyB=(rect_right, rect_y), coordsB=ax.transData,
+                arrowstyle='-', edgecolor='black', linewidth=0.8,
+                alpha=1.0,
+            )
+            ax.add_artist(left_connector)
+            ax.add_artist(right_connector)
 
     _apply_axis_style(ax)
+    ax.minorticks_off()
 
-    _add_panel_labels([axes[0, 0], axes[0, 1], axes[0, 2], axes[0, 3]])
+    _add_panel_labels(
+        [axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]],
+        x=-0.13,
+        y=1.06,
+        fontsize=18,
+        fontweight='normal',
+    )
     plt.tight_layout()
     fig_file = output_path / filename
     plt.savefig(fig_file, dpi=dpi, bbox_inches='tight')
+    pdf_file = fig_file.with_suffix('.pdf')
+    plt.savefig(pdf_file, bbox_inches='tight')
     plt.close()
     print(f"Saved history-row plot: {fig_file}")
+    print(f"Saved history-row PDF: {pdf_file}")
     return str(fig_file)
 
 

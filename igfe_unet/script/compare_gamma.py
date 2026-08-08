@@ -14,6 +14,7 @@ from postprocess.common import (
 )
 from postprocess.common import extract_mix_ratio_info
 from postprocess.gamma import (
+    _gamma_from_exp_id,
     save_gamma_statistics,
     grouped_data_from_gamma_statistics_csv,
     plot_gamma_error_heatmaps,
@@ -36,6 +37,8 @@ EXCLUDE_RATIO_EXPERIMENTS = True
 # Set to None to auto-detect all available noise levels.
 TARGET_NOISE_LEVELS = [0, 2, 4, 6, 8, 10]
 TARGET_HEATMAP_NOISE_LEVELS = TARGET_NOISE_LEVELS
+# The manuscript reports the gamma sweep as lambda = 10^1 ... 10^8.
+TARGET_GAMMA_VALUES = [10.0 ** exponent for exponent in range(1, 9)]
 TARGET_DATA_SPLIT = os.environ.get('TARGET_DATA_SPLIT', 'val')  # options: 'val', 'test'
 TARGET_DATA_SPLIT = TARGET_DATA_SPLIT.strip().lower()
 if TARGET_DATA_SPLIT not in ['val', 'test']:
@@ -69,13 +72,16 @@ print(f"  Eval types: {', '.join(TARGET_EVAL_TYPES)}")
 print(f"  Exclude ratio experiments: {EXCLUDE_RATIO_EXPERIMENTS}")
 print(f"  Noise levels: {_fmt_noise_levels(TARGET_NOISE_LEVELS)}")
 print(f"  Heatmap noise levels: {_fmt_noise_levels(TARGET_HEATMAP_NOISE_LEVELS)}")
+print(f"  Gamma values: {_fmt_noise_levels(TARGET_GAMMA_VALUES)}")
 print(f"  Data split: {TARGET_DATA_SPLIT}")
 print(f"  Output dir: {OUTPUT_DIR}")
 print('=' * 90)
 
 print('\nSearching for experiments...')
-experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
-print(f"Found {len(experiments)} total experiments")
+gamma_experiments = find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP)
+standard_experiments = find_all_experiments(experiment_group='std')
+experiments = gamma_experiments + standard_experiments
+print(f"Found {len(gamma_experiments)} gamma experiments and {len(standard_experiments)} standard experiments")
 
 print('\nLoading and filtering experiment results...')
 experiments_data = {}
@@ -99,6 +105,15 @@ for exp_info in experiments:
         continue
     if method not in TARGET_METHODS:
         continue
+    if method in {'LocMixloss', 'GloMixloss'}:
+        gamma = config.get('gamma', _gamma_from_exp_id(exp_id))
+        try:
+            gamma = float(gamma)
+        except (TypeError, ValueError):
+            continue
+        if not any(abs(gamma - value) <= 1e-9 * max(1.0, abs(value))
+                   for value in TARGET_GAMMA_VALUES):
+            continue
     if EXCLUDE_RATIO_EXPERIMENTS:
         ratio_info = extract_mix_ratio_info(results, exp_id=exp_id, exp_path=exp_path)
         if ratio_info.get('ratio_tag') is not None:
@@ -180,7 +195,7 @@ if ENABLE_DETAILED_CURVES:
         filename_suffix=_gn_suffix(TARGET_USE_BATCH_NORM),
     )
 
-    print('\nGenerating gamma performance curves (mean+/-std)...')
+    print('\nGenerating gamma performance curves (mean with 5th-95th percentile baseline ranges)...')
     plot_gamma_mean_std_bars(
         experiments_data,
         output_dir=OUTPUT_DIR,

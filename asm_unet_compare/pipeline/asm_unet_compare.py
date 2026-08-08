@@ -3,6 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 try:
     from .common import (
@@ -60,7 +61,7 @@ def _row_tag(row_idx):
     return f"({chr(ord('a') + row_idx)})"
 
 
-def _add_row_tags(first_col_axes, x=-0.10, y=1.06, fontsize=11):
+def _add_row_tags(first_col_axes, x=-0.16, y=1.10, fontsize=16):
     for row_idx, ax in sorted(first_col_axes.items()):
         ax.text(
             x,
@@ -68,10 +69,27 @@ def _add_row_tags(first_col_axes, x=-0.10, y=1.06, fontsize=11):
             _row_tag(row_idx),
             transform=ax.transAxes,
             fontsize=fontsize,
-            fontweight='bold',
+            fontweight='normal',
             va='top',
             ha='left',
         )
+
+
+def _style_field_colorbar(colorbar, label):
+    colorbar.ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    colorbar.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    colorbar.set_label(label, fontsize=15, fontweight='normal')
+    colorbar.ax.tick_params(
+        direction='in', which='both', labelsize=15, length=4.0, width=0.8
+    )
+    colorbar.outline.set_linewidth(0.8)
+
+
+def _save_figure_pair(fig, save_path, dpi):
+    fig.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+    pdf_path = os.path.splitext(save_path)[0] + '.pdf'
+    fig.savefig(pdf_path, bbox_inches='tight', pad_inches=0.03)
+    print(f"Saved PDF: {pdf_path}")
 
 
 def _normalize_case_cfg(cfg, case_cfg):
@@ -149,7 +167,7 @@ def _plot_prediction_figure(methods_order, noise_order, method_to_panel_data, sa
             pred = noise_map[float(noise)]['pred']
             im = _draw_field_panel(ax, pred, mesh_info, contour_fn, 'viridis', vmin=vmin, vmax=vmax)
             if row_idx == 0:
-                ax.set_title(METHOD_DISPLAY.get(method, method), fontsize=11, fontweight='bold', pad=0)
+                ax.set_title(METHOD_DISPLAY.get(method, method), fontsize=16, fontweight='normal', pad=0)
             if col_idx == 0:
                 first_col_axes[row_idx] = ax
             axes_pred.append(ax)
@@ -160,12 +178,11 @@ def _plot_prediction_figure(methods_order, noise_order, method_to_panel_data, sa
         return
 
     fig.subplots_adjust(left=0.070, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.085)
-    _add_row_tags(first_col_axes, x=-0.10, y=1.06, fontsize=11)
+    _add_row_tags(first_col_axes, x=-0.16, y=1.10, fontsize=16)
     cax = fig.add_axes([0.915, 0.14, 0.016, 0.74])
     colorbar = fig.colorbar(im_ref, cax=cax)
-    colorbar.set_label('Modulus (MPa)', fontsize=10, fontweight='bold')
-    colorbar.ax.tick_params(labelsize=9)
-    fig.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+    _style_field_colorbar(colorbar, 'Modulus (MPa)')
+    _save_figure_pair(fig, save_path, dpi)
     plt.close(fig)
 
 
@@ -192,7 +209,7 @@ def _plot_error_figure(methods_order, noise_order, method_to_panel_data, save_pa
             err = noise_map[float(noise)]['rel_err']
             im = _draw_field_panel(ax, err, mesh_info, contour_fn, 'Blues', vmin=0, vmax=vmax)
             if row_idx == 0:
-                ax.set_title(METHOD_DISPLAY.get(method, method), fontsize=11, fontweight='bold', pad=2)
+                ax.set_title(METHOD_DISPLAY.get(method, method), fontsize=16, fontweight='normal', pad=2)
             if col_idx == 0:
                 first_col_axes[row_idx] = ax
             ax.text(
@@ -202,7 +219,7 @@ def _plot_error_figure(methods_order, noise_order, method_to_panel_data, save_pa
                 transform=ax.transAxes,
                 ha='left',
                 va='top',
-                fontsize=8,
+                fontsize=11,
                 color='white',
                 bbox={'facecolor': 'black', 'alpha': 0.35, 'edgecolor': 'none', 'boxstyle': 'square,pad=0.0'},
             )
@@ -212,11 +229,10 @@ def _plot_error_figure(methods_order, noise_order, method_to_panel_data, save_pa
     if im_ref is not None and axes_err:
         cax = fig.add_axes([0.915, 0.14, 0.016, 0.74])
         colorbar = fig.colorbar(im_ref, cax=cax)
-        colorbar.set_label('Relative error (%)', fontsize=10, fontweight='bold')
-        colorbar.ax.tick_params(labelsize=9)
+        _style_field_colorbar(colorbar, 'Relative error (%)')
     fig.subplots_adjust(left=0.070, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.085)
-    _add_row_tags(first_col_axes, x=-0.10, y=1.06, fontsize=11)
-    fig.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+    _add_row_tags(first_col_axes, x=-0.16, y=1.10, fontsize=16)
+    _save_figure_pair(fig, save_path, dpi)
     plt.close(fig)
 
 
