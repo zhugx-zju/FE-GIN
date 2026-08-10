@@ -121,4 +121,16 @@ class FNO2d(nn.Module):
         return output
 
 
-__all__ = ["SpectralConv2d", "FourierBlock", "FNO2d"]
+def build_fno_model(cfg):
+    return FNO2d(
+        input_channels=cfg.input_channels,
+        output_channels=cfg.output_channels,
+        width=cfg.width,
+        modes1=cfg.modes1,
+        modes2=cfg.modes2,
+        n_layers=cfg.n_layers,
+        use_coordinates=cfg.use_coordinates,
+    )
+
+
+__all__ = ["SpectralConv2d", "FourierBlock", "FNO2d", "build_fno_model"]

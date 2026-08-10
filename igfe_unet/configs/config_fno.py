@@ -10,6 +10,11 @@ data_path = os.environ.get(
 )
 load_type = "force_load"
 config_type = "fno"
+model_tag = "fno_mse"
+method_label = "FNO-MSE"
+output_dir = os.path.join(
+    project_root, "results", "force_load", "fno_custom"
+)
 
 lr_start = 3e-4
 n_epochs = 1500

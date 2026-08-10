@@ -8,13 +8,13 @@ import torch
 from torch import nn
 from torch.optim import Adam, lr_scheduler
 
-from architectures.fno import FNO2d
+from architectures.fno import build_fno_model
 from utils.utils_fno import count_parameters, count_tensor_parameters, run_id, write_json
 from utils.utils_training import load_mse_data
 
 
 class FNOTrainer:
-    def __init__(self, cfg, output_root):
+    def __init__(self, cfg, output_root, model_builder=build_fno_model):
         self.cfg = cfg
         self.output_root = Path(output_root)
         self.experiment_id = run_id(cfg)
@@ -25,15 +25,7 @@ class FNOTrainer:
         self.history_path = self.log_dir / "history.csv"
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.net = FNO2d(
-            input_channels=cfg.input_channels,
-            output_channels=cfg.output_channels,
-            width=cfg.width,
-            modes1=cfg.modes1,
-            modes2=cfg.modes2,
-            n_layers=cfg.n_layers,
-            use_coordinates=cfg.use_coordinates,
-        ).to(cfg.device)
+        self.net = model_builder(cfg).to(cfg.device)
         self.parameter_count = count_parameters(self.net)
         self.tensor_parameter_count = count_tensor_parameters(self.net)
         self.criterion = nn.MSELoss()

@@ -1,4 +1,4 @@
-"""Evaluate an FNO checkpoint on the shared fixed test sets and noise levels."""
+"""Evaluate a NeuralOperator-backed FNO checkpoint."""
 
 import argparse
 import os
@@ -10,7 +10,8 @@ root_dir = os.path.abspath(os.path.join(current_dir, ".."))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from configs import config_fno
+from architectures.fno_neuralop import build_neuralop_fno_model
+from configs import config_fno_neuralop
 from model.fno_test import FNOTester
 from utils.utils_fno import module_config, output_root, read_json, resolve_device
 
@@ -31,7 +32,7 @@ def parse_args():
 
 
 def load_config(args):
-    values = module_config(config_fno)
+    values = module_config(config_fno_neuralop)
     if args.config:
         values.update(read_json(args.config))
     if args.data_path:
@@ -48,7 +49,12 @@ def run_testing(args=None):
     root = output_root(args.output_root or cfg.output_dir)
     noise_levels = [float(value) for value in args.noise_levels.split(",") if value.strip()]
     dataset_types = [value.strip().lower() for value in args.dataset_types.split(",") if value.strip()]
-    tester = FNOTester(cfg, args.checkpoint, root)
+    tester = FNOTester(
+        cfg,
+        args.checkpoint,
+        root,
+        model_builder=build_neuralop_fno_model,
+    )
     tester.evaluate(
         dataset_types,
         noise_levels,

@@ -1,0 +1,2 @@
+# Install PyTorch separately with the CUDA/CPU wheel matching the server.
+neuraloperator

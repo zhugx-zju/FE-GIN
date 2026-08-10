@@ -1,4 +1,4 @@
-"""Train the isolated FNO-MSE baseline using the repository data protocol."""
+"""Train the optional NeuralOperator-backed FNO-MSE baseline."""
 
 import argparse
 import os
@@ -10,7 +10,8 @@ root_dir = os.path.abspath(os.path.join(current_dir, ".."))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from configs import config_fno
+from architectures.fno_neuralop import build_neuralop_fno_model
+from configs import config_fno_neuralop
 from model.fno_train import FNOTrainer
 from utils.utils_fno import module_config, output_root, resolve_device, set_seed
 
@@ -44,7 +45,7 @@ def build_config(args):
             "n_layers": args.layers,
         }.items() if value is not None
     }
-    values = module_config(config_fno, overrides)
+    values = module_config(config_fno_neuralop, overrides)
     values["device"] = resolve_device(values["device"])
     return SimpleNamespace(**values)
 
@@ -54,7 +55,7 @@ def run_training(args=None):
     cfg = build_config(args)
     set_seed(cfg.seed)
     root = output_root(args.output_root or cfg.output_dir)
-    trainer = FNOTrainer(cfg, root)
+    trainer = FNOTrainer(cfg, root, model_builder=build_neuralop_fno_model)
     trainer.run_training()
 
 

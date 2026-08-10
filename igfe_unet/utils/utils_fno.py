@@ -14,7 +14,11 @@ def project_root():
 
 
 def output_root(custom_root=None):
-    root = Path(custom_root) if custom_root else project_root() / "results" / "fno_baseline"
+    root = (
+        Path(custom_root)
+        if custom_root
+        else project_root() / "results" / "force_load" / "fno_custom"
+    )
     for name in ("configs", "models", "logs", "metrics", "figures"):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root.resolve()
@@ -22,7 +26,8 @@ def output_root(custom_root=None):
 
 def run_id(cfg):
     return (
-        f"fno_mse_w{int(cfg.width)}_m{int(cfg.modes1)}x{int(cfg.modes2)}"
+        f"{getattr(cfg, 'model_tag', 'fno_mse')}_w{int(cfg.width)}"
+        f"_m{int(cfg.modes1)}x{int(cfg.modes2)}"
         f"_l{int(cfg.n_layers)}_s{int(cfg.seed)}"
     )
 

@@ -163,15 +163,24 @@ pip install -r requirements.txt
 
 The root `requirements.txt` covers the common Python dependencies used across the PyTorch and ASM utilities. The file `asm_log/requirements.txt` remains as a minimal baseline-only dependency list.
 
-The FNO baseline is implemented directly with `torch.fft` and does not require
-`neuraloperator` or another FNO-specific package. On a remote GPU server,
-install the PyTorch wheel matching the CUDA driver before installing the other
-packages. For example:
+The default FNO baseline is implemented directly with `torch.fft` and does not
+require an FNO-specific package. An optional second implementation backed by
+`neuraloperator` is provided for implementation-level comparison. On a remote
+GPU server, install the PyTorch wheel matching the CUDA driver before installing
+the other packages. For example:
 
 ```bash
-# CUDA 12.1 example
-python -m pip install torch --index-url https://download.pytorch.org/whl/cu121
-python -m pip install numpy scipy matplotlib pandas
+# CUDA 12.4 server example
+python -m pip install torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cu124
+python -m pip install -r requirements.txt
+```
+
+To run the optional `neuraloperator` implementation, activate the same
+environment and install its isolated requirements:
+
+```bash
+python -m pip install -r requirements_fno_neuralop.txt
 ```
 
 For CPU-only execution, use the PyTorch CPU index instead:
@@ -333,12 +342,6 @@ Set the same dataset path used by the U-Net experiments:
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 ```
 
-Run the model smoke test first:
-
-```bash
-python igfe_unet/script/fno_smoke_test.py
-```
-
 Then train the default parameter-matched FNO-MSE configuration:
 
 ```bash
@@ -347,21 +350,30 @@ python igfe_unet/script/train_fno.py --device cuda --epochs 1500 --seed 42
 
 The default configuration is `width=21`, `modes=8x8`, `layers=4`; its roughly
 454k real-scalar parameters are close to the current U-Net's roughly 473k.
-Checkpoints and metrics are written under `results/fno_baseline/`.
+Checkpoints and metrics are written under
+`results/force_load/fno_custom/`. The optional NeuralOperator run uses the same
+data and trainer, with outputs isolated under
+`results/force_load/fno_neuralop/`; neither run overwrites the other.
 
 Evaluate the selected checkpoint on all fixed test sets and noise levels:
 
 ```bash
 python igfe_unet/script/test_fno.py \
-  --checkpoint results/fno_baseline/models/fno_mse_w21_m8x8_l4_s42/model.pt \
-  --config results/fno_baseline/configs/fno_mse_w21_m8x8_l4_s42.json \
+  --checkpoint results/force_load/fno_custom/models/fno_mse_w21_m8x8_l4_s42/model.pt \
+  --config results/force_load/fno_custom/configs/fno_mse_w21_m8x8_l4_s42.json \
   --device cuda \
   --dataset-types mix,bil,exp,grf \
   --noise-levels 0,2,4,6,8,10
 ```
 
-Use `results/fno_baseline/metrics/summary.csv` as the input table for a later
+Use `results/force_load/fno_custom/metrics/summary.csv` as the input table for a later
 extension of `asm_unet_compare`.
+
+To compare the package-backed implementation, install
+`requirements_fno_neuralop.txt` and run the corresponding scripts described in
+`FNO_BASELINE.md`. Its model settings use the same width, Fourier modes, layer
+count, input/output shapes, optimizer, loss, data split, and evaluation
+protocol as the custom FNO baseline.
 
 ### 5. Run batch U-Net evaluation and postprocessing
 

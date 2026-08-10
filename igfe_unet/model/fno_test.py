@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from architectures.fno import FNO2d
+from architectures.fno import build_fno_model
 from utils.utils_test import generate_noise_data, load_test_data
 
 
@@ -54,20 +54,12 @@ def save_prediction_panel(path, target, prediction):
 
 
 class FNOTester:
-    def __init__(self, cfg, checkpoint, output_root):
+    def __init__(self, cfg, checkpoint, output_root, model_builder=build_fno_model):
         self.cfg = cfg
         self.output_root = Path(output_root)
         self.checkpoint = Path(checkpoint).resolve()
         state = torch.load(self.checkpoint, map_location=cfg.device, weights_only=True)
-        self.net = FNO2d(
-            input_channels=cfg.input_channels,
-            output_channels=cfg.output_channels,
-            width=cfg.width,
-            modes1=cfg.modes1,
-            modes2=cfg.modes2,
-            n_layers=cfg.n_layers,
-            use_coordinates=cfg.use_coordinates,
-        ).to(cfg.device)
+        self.net = model_builder(cfg).to(cfg.device)
         self.net.load_state_dict(state)
         self.net.eval()
 
@@ -104,12 +96,12 @@ class FNOTester:
             if noise_level == 0:
                 selected = min(max(sample_index, 0), len(predictions) - 1)
                 save_prediction_panel(
-                    self.output_root / "figures" / f"fno_{dataset_type}_noise_0.png",
+                    self.output_root / "figures" / f"{self.cfg.model_tag}_{dataset_type}_noise_0.png",
                     targets_np[selected],
                     predictions[selected],
                 )
                 np.savez(
-                    self.output_root / "figures" / f"fno_{dataset_type}_sample_{selected}.npz",
+                    self.output_root / "figures" / f"{self.cfg.model_tag}_{dataset_type}_sample_{selected}.npz",
                     target=targets_np[selected],
                     prediction=predictions[selected],
                     error=np.abs(targets_np[selected] - predictions[selected]),
@@ -134,7 +126,7 @@ class FNOTester:
         if not rows:
             raise RuntimeError("No test datasets were available")
 
-        per_sample_path = self.output_root / "metrics" / "per_sample_fno_mse.csv"
+        per_sample_path = self.output_root / "metrics" / f"per_sample_{self.cfg.model_tag}.csv"
         per_sample_path.parent.mkdir(parents=True, exist_ok=True)
         with per_sample_path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
@@ -147,7 +139,7 @@ class FNOTester:
         summary_rows = []
         for (dataset_type, noise_level), group in sorted(grouped.items()):
             summary_rows.append({
-                "method": "FNO-MSE",
+                "method": getattr(self.cfg, "method_label", self.cfg.model_tag),
                 "dataset": dataset_type,
                 "noise_level": noise_level,
                 "n_samples": len(group),

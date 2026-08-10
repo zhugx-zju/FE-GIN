@@ -1,7 +1,11 @@
 # FNO baseline
 
-This branch adds a PyTorch-only Fourier Neural Operator baseline while keeping
-the repository's existing data and script layout.
+This branch adds two Fourier Neural Operator baselines while keeping the
+repository's existing data, model, and script layout:
+
+- `FNO-MSE`: the repository-local implementation in `architectures/fno.py`.
+- `FNO-neuraloperator-MSE`: the optional `neuraloperator` implementation in
+  `architectures/fno_neuralop.py`.
 
 The model accepts displacement tensors with shape `[N, 2, 40, 40]` and returns
 modulus fields with shape `[N, 40, 40]`. The coordinate grid is generated
@@ -23,11 +27,13 @@ nvidia-smi
 Then use the matching official PyTorch wheel. Examples:
 
 ```bash
-# CUDA 12.1 example
-python -m pip install torch --index-url https://download.pytorch.org/whl/cu121
+# CUDA 12.4 server: install a cu124 PyTorch wheel in the active conda env.
+python -m pip install torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cu124
 
-# CPU-only example
-python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+# CPU-only alternative
+python -m pip install torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cpu
 ```
 
 After PyTorch is installed, install the remaining repository dependencies:
@@ -36,8 +42,37 @@ After PyTorch is installed, install the remaining repository dependencies:
 python -m pip install numpy scipy matplotlib pandas
 ```
 
-Do not install `neuraloperator` unless a later branch explicitly changes the
-implementation to use it. Verify the environment before running the project:
+The custom FNO needs no package beyond the repository's normal dependencies.
+For the optional package-backed comparison, install it in the same activated
+environment after PyTorch:
+
+```bash
+python -m pip install -r requirements_fno_neuralop.txt
+```
+
+For a clean CUDA 12.4 conda environment on the remote server, the complete
+installation sequence is:
+
+```bash
+conda create -n fno_neuralop python=3.10 -y
+conda activate fno_neuralop
+python -m pip install --upgrade pip
+python -m pip install torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cu124
+python -m pip install -r requirements.txt
+python -m pip install -r requirements_fno_neuralop.txt
+python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
+python -c "import neuralop; print(neuralop.__file__)"
+```
+
+The NVIDIA driver must support CUDA 12.4. The locally installed CUDA toolkit is
+not used by the standard PyTorch wheel; `nvidia-smi` is the authoritative
+driver check. If the server's driver cannot run the cu124 wheel, install the
+newest PyTorch CUDA wheel supported by that driver and keep the rest of the
+commands unchanged.
+
+This installs the package that provides the `neuralop` Python module. Verify
+the environment before running the project:
 
 ```powershell
 python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
@@ -85,31 +120,18 @@ Run the following steps from the repository root.
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 python -m py_compile \
   igfe_unet/architectures/fno.py \
+  igfe_unet/architectures/fno_neuralop.py \
   igfe_unet/model/fno_train.py \
   igfe_unet/model/fno_test.py \
   igfe_unet/script/train_fno.py \
-  igfe_unet/script/test_fno.py
-python igfe_unet/script/fno_smoke_test.py
+  igfe_unet/script/test_fno.py \
+  igfe_unet/script/train_fno_neuralop.py \
+  igfe_unet/script/test_fno_neuralop.py
 ```
 
 On PowerShell, use `$env:FNO_DATA_PATH = 'D:\path\to\data_mix\force_load'`.
 
-### 2. Run a short data/training smoke test
-
-Once `train/` and `val/` exist, run two epochs in a separate output root:
-
-```bash
-python igfe_unet/script/train_fno.py \
-  --device cuda \
-  --epochs 2 \
-  --batch-size 4 \
-  --output-root /tmp/fno_baseline_smoke
-```
-
-Check that `models/*/model.pt`, `configs/*.json`, and `logs/*/history.csv`
-were created. This is only a pipeline check, not a reported experiment.
-
-### 3. Train the baseline
+### 2. Train the custom FNO baseline
 
 The default data path is `data/data_mix/force_load`; `FNO_DATA_PATH` overrides
 it without changing `config_mix.py`:
@@ -133,17 +155,17 @@ uses the real-scalar convention for comparison with U-Net.
 Outputs are written under:
 
 ```text
-results/fno_baseline/
+results/force_load/fno_custom/
 ```
 
-### 4. Evaluate the selected checkpoint
+### 3. Evaluate the selected checkpoint
 
 After training, use the checkpoint and its saved configuration:
 
 ```bash
 python igfe_unet/script/test_fno.py \
-  --checkpoint results/fno_baseline/models/<run_id>/model.pt \
-  --config results/fno_baseline/configs/<run_id>.json \
+  --checkpoint results/force_load/fno_custom/models/<run_id>/model.pt \
+  --config results/force_load/fno_custom/configs/<run_id>.json \
   --device cuda \
   --dataset-types mix,bil,exp,grf \
   --noise-levels 0,2,4,6,8,10
@@ -152,21 +174,47 @@ python igfe_unet/script/test_fno.py \
 The evaluator uses the shared fixed test-set convention and writes
 `metrics/summary.csv`, `metrics/per_sample_fno_mse.csv`, representative NPZ
 fields, and PNG panels. Dataset types and noise levels can be selected with
-`--dataset-types` and `--noise-levels`. For a local smoke run, add
+`--dataset-types` and `--noise-levels`. To limit a diagnostic evaluation, add
 `--max-samples 4`; the default evaluates every available test sample.
+
+### 4. Train and evaluate FNO-neuraloperator
+
+The optional implementation uses the same defaults and data protocol. Install
+`requirements_fno_neuralop.txt` before starting this step. Its outputs are
+isolated from the custom baseline:
+
+```text
+results/force_load/fno_neuralop/
+```
+
+Train it:
+
+```bash
+python igfe_unet/script/train_fno_neuralop.py \
+  --device cuda \
+  --epochs 1500 \
+  --seed 42
+```
+
+Evaluate the checkpoint written by that run:
+
+```bash
+python igfe_unet/script/test_fno_neuralop.py \
+  --checkpoint results/force_load/fno_neuralop/models/<run_id>/model.pt \
+  --config results/force_load/fno_neuralop/configs/<run_id>.json \
+  --device cuda \
+  --dataset-types mix,bil,exp,grf \
+  --noise-levels 0,2,4,6,8,10
+```
+
+The default run id is `fno_neuralop_mse_w21_m8x8_l4_s42`. Compare its
+`metrics/summary.csv` with the custom FNO summary using the same dataset and
+noise-level rows.
 
 ### 5. Inspect outputs
 
 Use `metrics/summary.csv` for the method comparison and
 `metrics/per_sample_fno_mse.csv` for distributions and robustness plots.
 Use the files in `figures/` for the representative prediction/error panels.
-Only after this baseline is validated should its summary be merged into
-`asm_unet_compare`.
-
-## Standalone smoke test
-
-This check does not require training data:
-
-```bash
-python igfe_unet/script/fno_smoke_test.py
-```
+Only after both implementations are validated should their summaries be
+merged into `asm_unet_compare`.
