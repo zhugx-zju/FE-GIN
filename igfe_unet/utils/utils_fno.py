@@ -1,0 +1,88 @@
+"""Small utilities shared by the FNO training and evaluation scripts."""
+
+import json
+import os
+import random
+from pathlib import Path
+
+import numpy as np
+import torch
+
+
+def project_root():
+    return Path(__file__).resolve().parents[2]
+
+
+def output_root(custom_root=None):
+    root = Path(custom_root) if custom_root else project_root() / "results" / "fno_baseline"
+    for name in ("configs", "models", "logs", "metrics", "figures"):
+        (root / name).mkdir(parents=True, exist_ok=True)
+    return root.resolve()
+
+
+def run_id(cfg):
+    return (
+        f"fno_mse_w{int(cfg.width)}_m{int(cfg.modes1)}x{int(cfg.modes2)}"
+        f"_l{int(cfg.n_layers)}_s{int(cfg.seed)}"
+    )
+
+
+def count_parameters(model):
+    """Count trainable real scalar values, including both parts of complex weights."""
+    return int(sum(
+        (2 if parameter.is_complex() else 1) * parameter.numel()
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    ))
+
+
+def count_tensor_parameters(model):
+    """Return raw tensor element count for compatibility/debugging."""
+    return int(sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad))
+
+
+def set_seed(seed):
+    seed = int(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+def module_config(module, overrides=None):
+    values = {
+        key: value
+        for key, value in vars(module).items()
+        if not key.startswith("_") and not callable(value)
+    }
+    if overrides:
+        values.update(overrides)
+    return values
+
+
+def write_json(path, values):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(values, handle, indent=2, sort_keys=True, default=str)
+
+
+def read_json(path):
+    with Path(path).open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def resolve_device(requested):
+    requested = str(requested)
+    if requested == "cuda" and not torch.cuda.is_available():
+        return "cpu"
+    if requested == "mps":
+        mps = getattr(torch.backends, "mps", None)
+        if mps is None or not mps.is_available():
+            return "cpu"
+    return requested

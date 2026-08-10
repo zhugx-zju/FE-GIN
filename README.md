@@ -14,6 +14,7 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 - generate displacement-modulus pairs for BIL, EXP, and GRF modulus fields
 - preprocess MATLAB data into tensors and FE residual metadata for neural training
 - train U-Net models with data, physics-only, and hybrid losses
+- train a PyTorch-only Fourier Neural Operator (FNO-MSE) baseline
 - benchmark against a classical adjoint-state inverse solver
 - compare reconstruction quality, noise robustness, and warm-start behavior on shared fixed test sets
 
@@ -39,7 +40,7 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   |-- stenglib-master/          # Third-party MATLAB helper library
 |   `-- uniform_pressure_load/    # IGFE forward solver and batch generation scripts
 |-- igfe_unet/
-|   |-- architectures/            # U-Net, FE residual operators, custom losses
+|   |-- architectures/            # U-Net, FNO, FE residual operators, custom losses
 |   |-- configs/                  # Dataset-specific experiment configs
 |   |-- model/                    # Training and testing logic
 |   |-- postprocess/              # CSV/figure/statistics generation
@@ -47,7 +48,7 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   `-- utils/
 |-- data/                         # Local-only datasets, fixed test sets, and processed tensors
 |-- trained_models_mix/           # Local-only checkpoints and histories
-`-- results/                      # Local-only statistics, figures, and ASM/U-Net outputs
+`-- results/                      # Local-only statistics, figures, and ASM/U-Net/FNO outputs
 ```
 
 The current `force_load` asset layout is organized by experiment purpose:
@@ -161,6 +162,24 @@ pip install -r requirements.txt
 ```
 
 The root `requirements.txt` covers the common Python dependencies used across the PyTorch and ASM utilities. The file `asm_log/requirements.txt` remains as a minimal baseline-only dependency list.
+
+The FNO baseline is implemented directly with `torch.fft` and does not require
+`neuraloperator` or another FNO-specific package. On a remote GPU server,
+install the PyTorch wheel matching the CUDA driver before installing the other
+packages. For example:
+
+```bash
+# CUDA 12.1 example
+python -m pip install torch --index-url https://download.pytorch.org/whl/cu121
+python -m pip install numpy scipy matplotlib pandas
+```
+
+For CPU-only execution, use the PyTorch CPU index instead:
+
+```bash
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install numpy scipy matplotlib pandas
+```
 
 ## External Assets
 
@@ -301,7 +320,50 @@ The architecture group and the standard/gamma groups use the default `data_mix`
 dataset. Ratio experiments use their own immutable dataset directories, so
 they cannot overwrite the default dataset or another ratio's train/val split.
 
-### 4. Run batch U-Net evaluation and postprocessing
+### 4. Train and evaluate the FNO baseline
+
+The FNO baseline follows the same input/output tensors and train/validation/test
+protocol as U-Net, but uses Fourier spectral layers rather than an
+encoder-decoder U-Net. Detailed configuration and server setup are documented
+in [`FNO_BASELINE.md`](FNO_BASELINE.md).
+
+Set the same dataset path used by the U-Net experiments:
+
+```bash
+export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
+```
+
+Run the model smoke test first:
+
+```bash
+python igfe_unet/script/fno_smoke_test.py
+```
+
+Then train the default parameter-matched FNO-MSE configuration:
+
+```bash
+python igfe_unet/script/train_fno.py --device cuda --epochs 1500 --seed 42
+```
+
+The default configuration is `width=21`, `modes=8x8`, `layers=4`; its roughly
+454k real-scalar parameters are close to the current U-Net's roughly 473k.
+Checkpoints and metrics are written under `results/fno_baseline/`.
+
+Evaluate the selected checkpoint on all fixed test sets and noise levels:
+
+```bash
+python igfe_unet/script/test_fno.py \
+  --checkpoint results/fno_baseline/models/fno_mse_w21_m8x8_l4_s42/model.pt \
+  --config results/fno_baseline/configs/fno_mse_w21_m8x8_l4_s42.json \
+  --device cuda \
+  --dataset-types mix,bil,exp,grf \
+  --noise-levels 0,2,4,6,8,10
+```
+
+Use `results/fno_baseline/metrics/summary.csv` as the input table for a later
+extension of `asm_unet_compare`.
+
+### 5. Run batch U-Net evaluation and postprocessing
 
 Useful entry points under `igfe_unet/script`:
 
@@ -343,7 +405,7 @@ The standard and architecture validation scripts use the prepared default mix
 dataset. The ratio validation script reads the ratio-specific
 `dataset_manifest.json` and does not rebuild or overwrite `data_mix`.
 
-### 5. Run the ASM / adjoint baseline
+### 6. Run the ASM / adjoint baseline
 
 The classical baseline lives in `asm_log`.
 
@@ -370,7 +432,7 @@ python inverse_l_curve.py
 
 The baseline solver uses SciPy L-BFGS-B in log-modulus space with Tikhonov regularization. Its geometry, mesh, gamma range, bounds, and stopping tolerances are configured in `asm_log/config.py`.
 
-### 6. Compare U-Net, ASM, and warm-start ASM
+### 7. Compare U-Net, ASM, and warm-start ASM
 
 The comparison pipeline is under `asm_unet_compare`.
 
