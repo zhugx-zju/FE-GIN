@@ -130,6 +130,10 @@ tensor `numel` is smaller because the spectral weights are stored as complex
 tensors; each complex value represents two real scalars. The reported count
 uses the real-scalar convention for comparison with U-Net.
 
+Early stopping monitors validation MAE, requires an improvement larger than
+`1e-5`, and stops after 25 consecutive non-improving epochs. The log prints
+the current best value and the stale counter.
+
 Outputs are written under:
 
 ```text

@@ -18,6 +18,7 @@ train_rto = 0.70
 valid_rto = 0.20
 patience_lr = 10
 patience_stop = 25
+early_stop_min_delta = 1e-5
 weight_decay = 0.0
 seed = 42
 device = "cuda"
