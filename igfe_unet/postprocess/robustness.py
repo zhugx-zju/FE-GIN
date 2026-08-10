@@ -173,6 +173,9 @@ def _label_for_results(results, exp_id, exp_path, label_mode):
             return None
         return _legend_label(mse_ratio_label(results, exp_id=exp_id, exp_path=exp_path))
     method = config.get('method', 'Unknown')
+    if str(config.get('model_type', 'unet')).lower() == 'fno':
+        backend = str(config.get('fno_backend', 'custom')).strip().lower()
+        return f'FNO-{backend}'
     gamma = config.get('gamma', None)
     return _method_label(method, gamma)
 
@@ -186,7 +189,9 @@ def _label_color(label, label_mode, label_styles=None):
 def _collect_histogram_data(experiments_data, label_mode='method'):
     data = {}
     for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
-        if config_type != 'mix':
+        config = results.get('config') or {}
+        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        if dataset_type != 'mix':
             continue
         label = _label_for_results(results, exp_id, exp_path, label_mode)
         if label is None:
@@ -714,9 +719,10 @@ def save_noise_statistics(experiments_data, output_dir=None, filename_suffix='',
     output_path = _resolve_output_dir(output_dir, 'comparison_results')
     rows = []
     for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
-        if config_type != 'mix':
-            continue
         config = results.get('config') or {}
+        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        if dataset_type != 'mix':
+            continue
         method = config.get('method', 'Unknown')
         gamma = config.get('gamma', None)
         ratio_info = extract_mix_ratio_info(results, exp_id=exp_id, exp_path=exp_path)

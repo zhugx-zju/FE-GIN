@@ -5,6 +5,7 @@ from .common import (
     generate_paraset_table,
     save_results,
     extract_mix_ratio_info,
+    save_unified_metrics_table,
 )
 from .robustness import (
     plot_ecdf_curve,
@@ -31,6 +32,7 @@ __all__ = [
     'generate_paraset_table',
     'save_results',
     'extract_mix_ratio_info',
+    'save_unified_metrics_table',
     'plot_ecdf_curve',
     'save_noise_statistics',
     'plot_mae_history',

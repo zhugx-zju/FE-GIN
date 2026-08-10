@@ -1,5 +1,6 @@
 import sys
 import os
+import csv
 import torch
 import numpy as np
 import scipy.io as scio
@@ -287,6 +288,12 @@ class Testing:
         pred = np.zeros((num, nodesy, nodesx))
         error = np.zeros((num, nodesy, nodesx))
         L1 = np.zeros(num)
+        MAE = np.zeros(num)
+        RMSE = np.zeros(num)
+        target_mean = np.zeros(num)
+        target_std = np.zeros(num)
+        pred_mean = np.zeros(num)
+        pred_std = np.zeros(num)
 
         # Evaluate on GPU
         print(f"Evaluating {num} samples...")
@@ -313,6 +320,12 @@ class Testing:
 
                 # Calculate relative L1 error
                 L1[i] = self._relative_l1_error(targets_tmp, outputs_tmp)
+                MAE[i] = float(np.mean(absolute_errors))
+                RMSE[i] = float(np.sqrt(np.mean((targets_tmp - outputs_tmp) ** 2)))
+                target_mean[i] = float(np.mean(targets_tmp))
+                target_std[i] = float(np.std(targets_tmp))
+                pred_mean[i] = float(np.mean(outputs_tmp))
+                pred_std[i] = float(np.std(outputs_tmp))
 
                 # Calculate relative error (avoid division by zero)
                 mask = ~np.isclose(targets_tmp, 0)
@@ -334,9 +347,18 @@ class Testing:
                 error[i] = relative_errors
 
         # Save results
-        self._save_results(org, pred, error, L1, is_all_samples, data_type)
+        metrics = {
+            'relative_l1': L1,
+            'mae': MAE,
+            'rmse': RMSE,
+            'target_mean': target_mean,
+            'target_std': target_std,
+            'pred_mean': pred_mean,
+            'pred_std': pred_std,
+        }
+        self._save_results(org, pred, error, L1, metrics, is_all_samples, data_type)
 
-    def _save_results(self, org, pred, error, L1, is_all_samples, data_type=None):
+    def _save_results(self, org, pred, error, L1, metrics, is_all_samples, data_type=None):
         """
         Save evaluation results to appropriate folders.
 
@@ -375,6 +397,17 @@ class Testing:
         np.savetxt(l1_filename, L1)
         print(f"Saved L1 errors to: {l1_filename}")
 
+        metrics_filename = os.path.join(
+            save_dir, f'metrics_{split_tag}{type_str}{noise_str}.csv'
+        )
+        metric_names = list(metrics.keys())
+        with open(metrics_filename, 'w', newline='') as metric_file:
+            writer = csv.writer(metric_file)
+            writer.writerow(['sample'] + metric_names)
+            for index in range(len(L1)):
+                writer.writerow([index] + [float(metrics[name][index]) for name in metric_names])
+        print(f"Saved metrics to: {metrics_filename}")
+
         # Save detailed results (only for selected samples)
         if not is_all_samples:
             # Generate sample range string for filename
@@ -389,13 +422,13 @@ class Testing:
             # Save in npz format
             if self.save_format in ['npz', 'both']:
                 npz_filename = f"{base_filename}.npz"
-                np.savez(npz_filename, org=org, pred=pred, error=error)
+                np.savez(npz_filename, org=org, pred=pred, error=error, **metrics)
                 print(f"Saved results to: {npz_filename}")
 
             # Save in mat format
             if self.save_format in ['mat', 'both']:
                 mat_filename = f"{base_filename}.mat"
-                scio.savemat(mat_filename, {'org': org, 'pred': pred, 'error': error})
+                scio.savemat(mat_filename, {'org': org, 'pred': pred, 'error': error, **metrics})
                 print(f"Saved results to: {mat_filename}")
 
     def plot_prediction(self, outputs, targets, relative_errors, save_path=None):

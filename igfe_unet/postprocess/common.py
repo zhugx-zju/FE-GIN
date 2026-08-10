@@ -138,7 +138,7 @@ def _apply_axis_style(ax):
 
 def _legend_with_frame(ax, **kwargs):
     base = {
-        'frameon': True,
+        'frameon': False,
         'facecolor': 'white',
         'edgecolor': 'black',
         'framealpha': 1.0,
@@ -152,7 +152,7 @@ def _figure_legend_with_frame(fig, handles, labels, **kwargs):
     if not handles or not labels:
         return None
     base = {
-        'frameon': True,
+        'frameon': False,
         'facecolor': 'white',
         'edgecolor': 'black',
         'framealpha': 1.0,
@@ -432,6 +432,7 @@ def load_experiment_results(exp_path):
         'train_loss': None, 'valid_loss': None,
         'train_mae': None, 'valid_mae': None,
         'test_L1': {},
+        'test_metrics': {},
         'training_time': None,
     }
     exp_path = Path(exp_path)
@@ -471,7 +472,112 @@ def load_experiment_results(exp_path):
                 'variance': std ** 2,
             }
 
+        for metrics_file in search_path.glob('metrics_test*.csv'):
+            noise_level, eval_type = _parse_test_stem(metrics_file.stem.replace('metrics_', 'all_L1_'))
+            metric_data = _read_metric_csv(metrics_file)
+            if metric_data:
+                results['test_metrics'][(noise_level, eval_type)] = metric_data
+
     return results
+
+
+def _read_metric_csv(metrics_file):
+    """Read the shared per-sample metric CSV written by ``Testing``."""
+    try:
+        data = np.genfromtxt(metrics_file, delimiter=',', names=True)
+    except (OSError, ValueError):
+        return None
+    if data.size == 0 or data.dtype.names is None:
+        return None
+    if data.ndim == 0:
+        data = np.asarray([data], dtype=data.dtype)
+    summary = {}
+    for name in data.dtype.names:
+        values = np.asarray(data[name], dtype=float)
+        if name == 'sample':
+            continue
+        summary[name] = {
+            'mean': float(np.mean(values)),
+            'std': float(np.std(values)),
+        }
+    return summary
+
+
+def _load_specific_metric_stats(exp_path, eval_type='mix', noise_level=0.0, split='test'):
+    exp_path = Path(exp_path)
+    eval_suffix = f'_{str(eval_type).strip().lower()}' if str(eval_type).strip() else ''
+    noise_suffix = '' if np.isclose(float(noise_level), 0.0) else f"_noise_{_format_decimal_token(noise_level)}"
+    filename = f'metrics_{split}{eval_suffix}{noise_suffix}.csv'
+    for search_path in [exp_path / f'all_samples_{split}', exp_path / 'all_samples', exp_path]:
+        file_path = search_path / filename
+        if file_path.exists():
+            return _read_metric_csv(file_path)
+    return None
+
+
+def save_unified_metrics_table(experiments_data, output_dir=None, filename='unified_metrics.csv',
+                               noise_levels=None, eval_types=None):
+    """Save one long-form metrics table for U-Net and FNO experiments."""
+    output_path = _resolve_output_dir(output_dir, 'comparison_results')
+    noise_levels = [0, 2, 4, 6, 8, 10] if noise_levels is None else list(noise_levels)
+    rows = []
+    for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
+        config = results.get('config') or {}
+        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        if dataset_type != 'mix':
+            continue
+        requested_types = eval_types
+        if requested_types is None:
+            requested_types = config.get('eval_types', ['mix', 'bil', 'exp', 'grf'])
+        if requested_types == 'all':
+            requested_types = ['mix', 'bil', 'exp', 'grf']
+        if isinstance(requested_types, str):
+            requested_types = [requested_types]
+        model_type = str(config.get('model_type', 'unet')).lower()
+        backend = str(config.get('fno_backend', '')).lower() if model_type == 'fno' else ''
+        if model_type == 'fno':
+            architecture = (
+                f"width={config.get('width')}, modes={config.get('modes1')}x{config.get('modes2')}, "
+                f"layers={config.get('n_layers')}"
+            )
+        else:
+            architecture = str(config.get('filters_list', []))
+        for noise_level in noise_levels:
+            for eval_type in requested_types:
+                stats = _load_specific_metric_stats(
+                    exp_path, eval_type=eval_type, noise_level=noise_level, split='test'
+                )
+                if not stats:
+                    continue
+                row = {
+                    'config_type': config_type,
+                    'dataset_type': dataset_type,
+                    'model_type': model_type,
+                    'fno_backend': backend,
+                    'load_type': load_type,
+                    'experiment_group': config.get('experiment_group', 'std'),
+                    'exp_id': exp_id,
+                    'method': config.get('method', 'Unknown'),
+                    'label': ('FNO-' + backend if model_type == 'fno' else 'U-Net'),
+                    'architecture': architecture,
+                    'eval_type': eval_type,
+                    'noise_level': noise_level,
+                    'training_time': results.get('training_time'),
+                }
+                for metric_name, metric_stats in stats.items():
+                    row[f'{metric_name}_mean'] = metric_stats['mean']
+                    row[f'{metric_name}_std'] = metric_stats['std']
+                rows.append(row)
+    if not rows:
+        print('No shared metrics found. Run the final-model test scripts first.')
+        return None
+    table = pd.DataFrame(rows).sort_values(
+        ['noise_level', 'eval_type', 'label', 'exp_id']
+    ).reset_index(drop=True)
+    csv_file = output_path / filename
+    table.to_csv(csv_file, index=False)
+    print(f'Saved unified metrics table: {csv_file}')
+    return str(csv_file)
 
 
 def _load_specific_test_l1_stats(exp_path, eval_type='mix', noise_level=0.0, split='test'):

@@ -331,6 +331,34 @@ The architecture group and the standard/gamma groups use the default `data_mix`
 dataset. Ratio experiments use their own immutable dataset directories, so
 they cannot overwrite the default dataset or another ratio's train/val split.
 
+For the FNO architecture study, run the following U-Net-style sequence:
+
+```bash
+python igfe_unet/script/train_fno_architectures.py
+python igfe_unet/script/val_fno_architectures.py
+```
+
+Select the architecture from the validation outputs under
+`trained_models_fno/force_load/arch/`, then copy the selected experiment
+directory into `trained_models_fno/force_load/final_model/`. Finally run:
+
+```bash
+python igfe_unet/script/test_fno_final_models.py
+```
+
+This final-model script evaluates every configured noise level `[0, 2, 4, 6, 8,
+10]` and writes the same `all_L1_*`, prediction, and metric files as U-Net.
+After U-Net and FNO final models have been tested, the shared comparison table
+is generated with:
+
+```bash
+python igfe_unet/script/compare_unified_models.py
+```
+
+The table is saved below `results/force_load/final_model/` and contains the
+model family, architecture, training time, relative L1, MAE, RMSE, and field
+mean/standard-deviation columns for each noise level and evaluation subset.
+
 ### 4. Train and evaluate the FNO baseline
 
 The FNO baseline follows the same input/output tensors and train/validation/test
