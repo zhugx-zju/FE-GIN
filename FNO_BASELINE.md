@@ -5,7 +5,7 @@ repository's existing data, model, and script layout:
 
 - `FNO-MSE`: the repository-local implementation in `architectures/fno.py`.
 - `FNO-neuraloperator-MSE`: the optional `neuraloperator` implementation in
-  `architectures/fno_neuralop.py`.
+  `fno/neuraloperator.py`.
 
 The model accepts displacement tensors with shape `[N, 2, 40, 40]` and returns
 modulus fields with shape `[N, 40, 40]`. The coordinate grid is generated
@@ -15,7 +15,8 @@ normalization is added, matching the current U-Net loader.
 ## Environment
 
 No third-party FNO package is required. `igfe_unet/architectures/fno.py`
-implements the spectral convolution with `torch.fft`. Install PyTorch first,
+implements the spectral convolution with `torch.fft`; the FNO training and
+testing functions are organized under `igfe_unet/fno/`. Install PyTorch first,
 using the command matching the remote server.
 
 For a CUDA server, check the driver/CUDA combination first:
@@ -120,9 +121,11 @@ Run the following steps from the repository root.
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 python -m py_compile \
   igfe_unet/architectures/fno.py \
-  igfe_unet/architectures/fno_neuralop.py \
-  igfe_unet/model/fno_train.py \
-  igfe_unet/model/fno_test.py \
+  igfe_unet/fno/config.py \
+  igfe_unet/fno/common.py \
+  igfe_unet/fno/neuraloperator.py \
+  igfe_unet/fno/train.py \
+  igfe_unet/fno/test.py \
   igfe_unet/script/train_fno.py \
   igfe_unet/script/test_fno.py \
   igfe_unet/script/train_fno_neuralop.py \
@@ -137,14 +140,13 @@ The default data path is `data/data_mix/force_load`; `FNO_DATA_PATH` overrides
 it without changing `config_mix.py`:
 
 ```bash
-python igfe_unet/script/train_fno.py \
-  --device cuda \
-  --epochs 1500
+python igfe_unet/script/train_fno.py
 ```
 
-The default run id is `fno_mse_w21_m8x8_l4_s42`. For a validation sweep, vary
-`--width`, `--modes1`, `--modes2`, `--layers`, and `--seed`; each configuration
-gets a separate model directory.
+The defaults are stored in `igfe_unet/fno/config.py`: `width=21`,
+`modes1=8`, `modes2=8`, `n_layers=4`, `n_epochs=1500`, and `seed=42`. Edit
+that file for a controlled parameter sweep; each changed configuration gets a
+separate model directory.
 
 The default model has about 454,189 trainable real-scalar parameters, compared
 with about 472,545 for the current U-Net `[2, 32, 64, 128]`. Its raw PyTorch
@@ -170,9 +172,9 @@ python igfe_unet/script/test_fno.py
 
 The evaluator uses the shared fixed test-set convention and writes
 `metrics/summary.csv`, `metrics/per_sample_fno_mse.csv`, representative NPZ
-fields, and PNG panels. Dataset types and noise levels can be selected with
-`--dataset-types` and `--noise-levels`. To limit a diagnostic evaluation, add
-`--max-samples 4`; the default evaluates every available test sample.
+fields, and PNG panels. The dataset types, noise levels, sample index, and
+optional sample limit are configured in `igfe_unet/fno/config.py`; the default
+test call evaluates every available test sample.
 
 ### 4. Train and evaluate FNO-neuraloperator
 
@@ -187,10 +189,7 @@ results/force_load/fno_neuralop/
 Train it:
 
 ```bash
-python igfe_unet/script/train_fno_neuralop.py \
-  --device cuda \
-  --epochs 1500 \
-  --seed 42
+python igfe_unet/script/train_fno_neuralop.py
 ```
 
 Evaluate the checkpoint written by that run:
@@ -199,15 +198,11 @@ Evaluate the checkpoint written by that run:
 python igfe_unet/script/test_fno_neuralop.py
 ```
 
-The default run id is `fno_neuralop_mse_w21_m8x8_l4_s42`. Compare its
+The default run id is `fno_neuralop_mse_w21_m8x8_l4_s42`. The test script
+automatically selects the newest checkpoint and its matching config. Compare
 `metrics/summary.csv` with the custom FNO summary using the same dataset and
-noise-level rows. To select a specific historical run, pass its checkpoint;
-the matching config is inferred automatically:
-
-```bash
-python igfe_unet/script/test_fno_neuralop.py \
-  --checkpoint results/force_load/fno_neuralop/models/<run_id>/model.pt
-```
+noise-level rows. Programmatic callers can pass a specific checkpoint to
+`fno.test.test_fno` when a historical run must be evaluated.
 
 ### 5. Inspect outputs
 

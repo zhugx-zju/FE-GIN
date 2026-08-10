@@ -42,6 +42,7 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |-- igfe_unet/
 |   |-- architectures/            # U-Net, FNO, FE residual operators, custom losses
 |   |-- configs/                  # Dataset-specific experiment configs
+|   |-- fno/                      # FNO config, training, testing, and backends
 |   |-- model/                    # Training and testing logic
 |   |-- postprocess/              # CSV/figure/statistics generation
 |   |-- script/                   # Main training, testing, and comparison entry points
@@ -342,10 +343,11 @@ Set the same dataset path used by the U-Net experiments:
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 ```
 
-Then train the default parameter-matched FNO-MSE configuration:
+Then train the default parameter-matched FNO-MSE configuration. Its editable
+parameters are in `igfe_unet/fno/config.py`:
 
 ```bash
-python igfe_unet/script/train_fno.py --device cuda --epochs 1500 --seed 42
+python igfe_unet/script/train_fno.py
 ```
 
 The default configuration is `width=21`, `modes=8x8`, `layers=4`; its roughly

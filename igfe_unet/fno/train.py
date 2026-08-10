@@ -1,4 +1,4 @@
-"""Training manager for the isolated FNO-MSE baseline."""
+"""Training implementation shared by both FNO backends."""
 
 import csv
 import time
@@ -9,7 +9,14 @@ from torch import nn
 from torch.optim import Adam, lr_scheduler
 
 from architectures.fno import build_fno_model
-from utils.utils_fno import count_parameters, count_tensor_parameters, run_id, write_json
+from .common import (
+    count_parameters,
+    count_tensor_parameters,
+    output_root,
+    run_id,
+    set_seed,
+    write_json,
+)
 from utils.utils_training import load_mse_data
 
 
@@ -133,3 +140,13 @@ class FNOTrainer:
         print(f"Saved checkpoint: {self.checkpoint_path}")
         print(f"Saved config: {self.config_path}")
         print(f"Training seconds: {elapsed:.3f}")
+
+
+def train_fno(cfg, model_builder=build_fno_model, output_root_override=None):
+    """Train from a prepared config object, matching the U-Net model API."""
+    set_seed(cfg.seed)
+    root = output_root(output_root_override or cfg.output_dir)
+    return FNOTrainer(cfg, root, model_builder=model_builder).run_training()
+
+
+__all__ = ["FNOTrainer", "train_fno"]

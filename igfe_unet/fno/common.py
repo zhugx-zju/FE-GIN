@@ -1,7 +1,6 @@
-"""Small utilities shared by the FNO training and evaluation scripts."""
+"""Shared filesystem, reproducibility, and checkpoint helpers for FNO."""
 
 import json
-import os
 import random
 from pathlib import Path
 
@@ -14,11 +13,7 @@ def project_root():
 
 
 def output_root(custom_root=None):
-    root = (
-        Path(custom_root)
-        if custom_root
-        else project_root() / "results" / "force_load" / "fno_custom"
-    )
+    root = Path(custom_root) if custom_root else project_root() / "results" / "force_load" / "fno_custom"
     for name in ("configs", "models", "logs", "metrics", "figures"):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root.resolve()
@@ -36,16 +31,14 @@ def resolve_checkpoint(checkpoint=None, search_root=None):
     candidates = [path for path in (root / "models").glob("*/model.pt") if path.is_file()]
     if not candidates:
         raise FileNotFoundError(
-            f"No checkpoint found under {root}. Train the model first or pass --checkpoint."
+            f"No checkpoint found under {root}. Train the model first or pass a checkpoint."
         )
     return max(candidates, key=lambda path: path.stat().st_mtime).resolve()
 
 
 def checkpoint_config_path(checkpoint):
-    """Infer the saved config path from ``models/<run_id>/model.pt``."""
     checkpoint = Path(checkpoint).resolve()
-    run_name = checkpoint.parent.name
-    return checkpoint.parent.parent.parent / "configs" / f"{run_name}.json"
+    return checkpoint.parent.parent.parent / "configs" / f"{checkpoint.parent.name}.json"
 
 
 def run_id(cfg):
@@ -57,7 +50,7 @@ def run_id(cfg):
 
 
 def count_parameters(model):
-    """Count trainable real scalar values, including both parts of complex weights."""
+    """Count trainable real scalar values, including complex weight parts."""
     return int(sum(
         (2 if parameter.is_complex() else 1) * parameter.numel()
         for parameter in model.parameters()
@@ -66,7 +59,6 @@ def count_parameters(model):
 
 
 def count_tensor_parameters(model):
-    """Return raw tensor element count for compatibility/debugging."""
     return int(sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad))
 
 
@@ -81,17 +73,6 @@ def set_seed(seed):
     if hasattr(torch.backends, "cudnn"):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
-
-def module_config(module, overrides=None):
-    values = {
-        key: value
-        for key, value in vars(module).items()
-        if not key.startswith("_") and not callable(value)
-    }
-    if overrides:
-        values.update(overrides)
-    return values
 
 
 def write_json(path, values):
@@ -115,3 +96,17 @@ def resolve_device(requested):
         if mps is None or not mps.is_available():
             return "cpu"
     return requested
+
+
+__all__ = [
+    "checkpoint_config_path",
+    "count_parameters",
+    "count_tensor_parameters",
+    "output_root",
+    "read_json",
+    "resolve_checkpoint",
+    "resolve_device",
+    "run_id",
+    "set_seed",
+    "write_json",
+]

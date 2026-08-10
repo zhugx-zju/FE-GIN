@@ -1,4 +1,4 @@
-"""Testing manager for the isolated FNO baseline."""
+"""Testing implementation shared by both FNO backends."""
 
 import csv
 from pathlib import Path
@@ -8,6 +8,13 @@ import numpy as np
 import torch
 
 from architectures.fno import build_fno_model
+from .common import (
+    checkpoint_config_path,
+    output_root,
+    read_json,
+    resolve_checkpoint,
+    resolve_device,
+)
 from utils.utils_test import generate_noise_data, load_test_data
 
 
@@ -35,14 +42,14 @@ def metric_row(target, prediction, dataset_type, noise_level, sample_index):
     }
 
 
-def save_prediction_panel(path, target, prediction):
+def save_prediction_panel(path, target, prediction, method_label):
     path.parent.mkdir(parents=True, exist_ok=True)
     error = np.abs(target - prediction)
     figure, axes = plt.subplots(1, 3, figsize=(12, 3.6), constrained_layout=True)
     for axis, image, title in zip(
         axes,
         (target, prediction, error),
-        ("True modulus", "FNO-MSE prediction", "Absolute error"),
+        ("True modulus", f"{method_label} prediction", "Absolute error"),
     ):
         plot = axis.imshow(image, origin="lower", cmap="viridis")
         axis.set_title(title)
@@ -92,16 +99,17 @@ class FNOTester:
                 metric_row(target, prediction, dataset_type, noise_level, index)
                 for index, (target, prediction) in enumerate(zip(targets_np, predictions))
             )
-
             if noise_level == 0:
                 selected = min(max(sample_index, 0), len(predictions) - 1)
+                tag = self.cfg.model_tag
                 save_prediction_panel(
-                    self.output_root / "figures" / f"{self.cfg.model_tag}_{dataset_type}_noise_0.png",
+                    self.output_root / "figures" / f"{tag}_{dataset_type}_noise_0.png",
                     targets_np[selected],
                     predictions[selected],
+                    self.cfg.method_label,
                 )
                 np.savez(
-                    self.output_root / "figures" / f"{self.cfg.model_tag}_{dataset_type}_sample_{selected}.npz",
+                    self.output_root / "figures" / f"{tag}_{dataset_type}_sample_{selected}.npz",
                     target=targets_np[selected],
                     prediction=predictions[selected],
                     error=np.abs(targets_np[selected] - predictions[selected]),
@@ -139,7 +147,7 @@ class FNOTester:
         summary_rows = []
         for (dataset_type, noise_level), group in sorted(grouped.items()):
             summary_rows.append({
-                "method": getattr(self.cfg, "method_label", self.cfg.model_tag),
+                "method": self.cfg.method_label,
                 "dataset": dataset_type,
                 "noise_level": noise_level,
                 "n_samples": len(group),
@@ -155,3 +163,55 @@ class FNOTester:
             writer.writerows(summary_rows)
         print(f"Saved per-sample metrics: {per_sample_path}")
         print(f"Saved summary metrics: {summary_path}")
+
+
+def test_fno(
+    cfg,
+    model_builder=build_fno_model,
+    checkpoint=None,
+    config_path=None,
+    output_root_override=None,
+    data_path=None,
+    device=None,
+    batch_size=None,
+    noise_levels=None,
+    dataset_types=None,
+    sample_index=None,
+    max_samples=None,
+):
+    """Evaluate from a config object, selecting the newest checkpoint by default."""
+    try:
+        checkpoint_path = resolve_checkpoint(
+            checkpoint,
+            output_root_override or cfg.output_dir,
+        )
+    except FileNotFoundError as error:
+        raise SystemExit(str(error)) from error
+    values = vars(cfg).copy()
+    saved_config_path = (
+        Path(config_path).expanduser()
+        if config_path
+        else checkpoint_config_path(checkpoint_path)
+    )
+    if saved_config_path.is_file():
+        values.update(read_json(saved_config_path))
+    elif config_path:
+        raise FileNotFoundError(f"Config does not exist: {saved_config_path}")
+    if data_path:
+        values["data_path"] = data_path
+    if device:
+        values["device"] = device
+    values["device"] = resolve_device(values["device"])
+    cfg = type(cfg)(**values)
+    root = output_root(output_root_override or cfg.output_dir)
+    tester = FNOTester(cfg, checkpoint_path, root, model_builder=model_builder)
+    return tester.evaluate(
+        dataset_types or cfg.dataset_types,
+        noise_levels or cfg.noise_levels,
+        batch_size=batch_size or cfg.batch_size,
+        sample_index=cfg.sample_index if sample_index is None else sample_index,
+        max_samples=max_samples,
+    )
+
+
+__all__ = ["FNOTester", "dataset_path", "metric_row", "test_fno"]
