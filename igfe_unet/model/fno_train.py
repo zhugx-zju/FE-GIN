@@ -92,7 +92,6 @@ class FNOTrainer:
         best_mae = float("inf")
         best_epoch = 0
         stale_epochs = 0
-        min_delta = float(getattr(self.cfg, "early_stop_min_delta", 0.0))
         history = []
         start = time.perf_counter()
 
@@ -108,28 +107,21 @@ class FNOTrainer:
                 "valid_mae": valid_mae,
                 "learning_rate": optimizer.param_groups[0]["lr"],
             }
-            improved = valid_mae < best_mae - min_delta
-            if improved:
+            history.append(row)
+            print(
+                f"Epoch {epoch}/{self.cfg.n_epochs}: "
+                f"train_mae={train_mae:.6g}, valid_mae={valid_mae:.6g}"
+            )
+            if valid_mae < best_mae:
                 best_mae = valid_mae
                 best_epoch = epoch
                 stale_epochs = 0
                 torch.save(self.net.state_dict(), self.checkpoint_path)
             else:
                 stale_epochs += 1
-            row["best_valid_mae"] = best_mae
-            row["stale_epochs"] = stale_epochs
-            history.append(row)
-            print(
-                f"Epoch {epoch}/{self.cfg.n_epochs}: "
-                f"train_mae={train_mae:.6g}, valid_mae={valid_mae:.6g}, "
-                f"best={best_mae:.6g}, stale={stale_epochs}/{self.cfg.patience_stop}"
-            )
-            if stale_epochs >= self.cfg.patience_stop:
-                print(
-                    f"Early stopping at epoch {epoch}; "
-                    f"best epoch={best_epoch}, best valid_mae={best_mae:.6g}"
-                )
-                break
+                if stale_epochs >= self.cfg.patience_stop:
+                    print(f"Early stopping at epoch {epoch}")
+                    break
 
         elapsed = time.perf_counter() - start
         self.save_history(self.history_path, history)
