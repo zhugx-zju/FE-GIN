@@ -1,4 +1,4 @@
-"""Evaluate the newest FNO checkpoint on the shared fixed test sets."""
+"""Evaluate the configured FNO checkpoint on the shared fixed test sets."""
 
 import os
 import sys

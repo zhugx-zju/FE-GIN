@@ -48,7 +48,8 @@ The codebase follows the FE-GIN workflow described in the manuscript *Finite-ele
 |   |-- script/                   # Main training, testing, and comparison entry points
 |   `-- utils/
 |-- data/                         # Local-only datasets, fixed test sets, and processed tensors
-|-- trained_models_mix/           # Local-only checkpoints and histories
+|-- trained_models_mix/           # Local-only U-Net checkpoints and histories
+|-- trained_models_fno/           # Local-only FNO checkpoints and histories
 `-- results/                      # Local-only statistics, figures, and ASM/U-Net/FNO outputs
 ```
 
@@ -344,7 +345,7 @@ export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 ```
 
 Then train the default literature-style FNO-MSE configuration. Its editable
-structural parameters are in `igfe_unet/fno/config.py`:
+structural parameters are in `igfe_unet/configs/config_fno.py`:
 
 ```bash
 python igfe_unet/script/train_fno.py
@@ -353,20 +354,20 @@ python igfe_unet/script/train_fno.py
 The default configuration is `width=32`, `modes=16x16`, `layers=4`; its roughly
 4.20M real-scalar parameters provide a conventional FNO capacity reference.
 The U-Net-size setting remains available as a commented configuration.
-Checkpoints and metrics are written under
-`results/force_load/fno_custom/`. The optional NeuralOperator run uses the same
-data and trainer, with outputs isolated under
-`results/force_load/fno_neuralop/`; neither run overwrites the other.
+Checkpoints and histories use the same format as U-Net and are written under
+`trained_models_fno/force_load/std/FNO_custom_w32_m16x16_l4/`. The optional
+NeuralOperator run uses the same data and trainer, with its backend isolated
+under `trained_models_fno/force_load/std/FNO_neuralop_w32_m16x16_l4/`.
 
-Evaluate the newest custom-FNO checkpoint on all fixed test sets and noise
-levels. The script automatically loads the matching config:
+Evaluate the custom-FNO checkpoint using the same test and result-saving path
+as U-Net:
 
 ```bash
 python igfe_unet/script/test_fno.py
 ```
 
-Use `results/force_load/fno_custom/metrics/summary.csv` as the input table for a later
-extension of `asm_unet_compare`.
+Use the generated U-Net-style `L1` files and `npz`/`mat` prediction files as
+the input for a later extension of `asm_unet_compare`.
 
 To compare the package-backed implementation, install
 `requirements_fno_neuralop.txt` and run the corresponding scripts described in

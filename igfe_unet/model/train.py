@@ -10,6 +10,7 @@ if root_dir not in sys.path:
 from utils.utils_process import get_filepath, write_config, construct_paths
 from utils.utils_training import load_mse_data, load_eleres_data, load_totres_data, save_train
 from architectures.unet import UNet
+from architectures.fno import build_fno_model
 from architectures.losses import LocResloss, GloResloss, LocMixloss, GloMixloss
 from architectures.feminfo import LocRes, GloRes
 import time
@@ -38,7 +39,6 @@ class BaseTrainer:
             min_lr=1e-6,
             threshold=1e-4,
             threshold_mode='rel',
-            verbose=True,
         )
 
     def load_checkpoint(self):
@@ -370,13 +370,26 @@ class Training:
     def __init__(self, cfg):
         self.device = cfg.device
         self.cfg = cfg
-        self.net = self.select_network(cfg.filters_list, cfg.kernel_size)
+        self.net = self.select_network()
 
     def select_network(self, *args):
+        model_type = str(getattr(self.cfg, 'model_type', 'unet')).lower()
+        if model_type == 'fno':
+            backend = str(getattr(self.cfg, 'fno_backend', 'custom')).lower()
+            if backend == 'custom':
+                return build_fno_model(self.cfg)
+            if backend == 'neuralop':
+                from fno.neuraloperator import build_neuralop_fno_model
+                return build_neuralop_fno_model(self.cfg)
+            raise ValueError(f"Unsupported FNO backend: {backend}")
+
         if len(args) == 3:
             _, filters_list, kernel_size = args
         elif len(args) == 2:
             filters_list, kernel_size = args
+        elif len(args) == 0:
+            filters_list = self.cfg.filters_list
+            kernel_size = self.cfg.kernel_size
         else:
             raise ValueError("select_network expects (filters_list, kernel_size).")
 

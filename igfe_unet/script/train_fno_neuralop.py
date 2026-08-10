@@ -9,8 +9,7 @@ if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 from fno.config import get_config
-from fno.neuraloperator import build_neuralop_fno_model
 from fno.train import train_fno
 
 
-train_fno(get_config("neuralop"), model_builder=build_neuralop_fno_model)
+train_fno(get_config("neuralop"))

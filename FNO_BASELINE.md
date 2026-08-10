@@ -90,7 +90,9 @@ activated conda or virtual environment.
 
 ## Data layout
 
-Set `FNO_DATA_PATH` to the same dataset used by U-Net. The preferred layout is:
+FNO uses the same `data_path` and split layout as U-Net. The optional
+`FNO_DATA_PATH` environment variable can override that path for a remote run.
+The preferred layout is:
 
 ```text
 data/data_mix/force_load/
@@ -121,6 +123,8 @@ Run the following steps from the repository root.
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 python -m py_compile \
   igfe_unet/architectures/fno.py \
+  igfe_unet/configs/config_fno.py \
+  igfe_unet/configs/config_fno_neuralop.py \
   igfe_unet/fno/config.py \
   igfe_unet/fno/common.py \
   igfe_unet/fno/neuraloperator.py \
@@ -143,50 +147,52 @@ it without changing `config_mix.py`:
 python igfe_unet/script/train_fno.py
 ```
 
-The defaults are stored in `igfe_unet/fno/config.py`: `width=32`,
+The defaults are stored in `igfe_unet/configs/config_fno.py`: `width=32`,
 `modes1=16`, `modes2=16`, `n_layers=4`, `n_epochs=1500`, and `seed=42`. The
 network settings follow a common literature-style FNO configuration. The
 optimizer, scheduler, early stopping, and batch size remain fixed to the
-repository settings. Edit the commented structural candidates in that file
-for a controlled comparison; each changed width/mode/layer configuration gets
-a separate model directory.
+repository settings. Edit the FNO-only structural parameters in that file for
+a controlled comparison; each changed width/mode/layer configuration gets a
+separate model directory. The custom and NeuralOperator backends load the same
+structural defaults.
 
 The default model has about 4.20 million trainable real-scalar parameters. This
 is a conventional FNO capacity reference rather than a parameter-count-matched
-U-Net baseline. The legacy U-Net-size setting (`width=21`, `modes=8x8`,
-`n_layers=4`) remains available as a commented option. Complex spectral weights
-are counted as two real scalar values for comparison with U-Net.
+U-Net baseline. A parameter-matched setting can be created by editing the FNO
+structural parameters in the configuration. Complex spectral weights are
+counted as two real scalar values for comparison with U-Net.
 
-Outputs are written under:
+Outputs use the same checkpoint and history format as U-Net and are written
+under:
 
 ```text
-results/force_load/fno_custom/
+trained_models_fno/force_load/std/FNO_custom_w32_m16x16_l4/
+trained_models_fno/force_load/std/FNO_neuralop_w32_m16x16_l4/
 ```
 
 ### 3. Evaluate the selected checkpoint
 
-After training, run the test script directly. It automatically selects the
-newest checkpoint under `results/force_load/fno_custom/` and loads the config
-with the same run id:
+After training, run the test script directly. It resolves the checkpoint using
+the same configuration and run directory as U-Net:
 
 ```bash
 python igfe_unet/script/test_fno.py
 ```
 
-The evaluator uses the shared fixed test-set convention and writes
-`metrics/summary.csv`, `metrics/per_sample_fno_mse.csv`, representative NPZ
-fields, and PNG panels. The dataset types, noise levels, sample index, and
-optional sample limit are configured in `igfe_unet/fno/config.py`; the default
-test call evaluates every available test sample.
+The evaluator uses the shared fixed test-set convention and writes U-Net-style
+`all_samples_*` or `selected_samples_*` folders with `L1` text files and
+`npz`/`mat` prediction files. The dataset types, noise levels, sample index,
+and optional sample limit are configured in `igfe_unet/configs/config_fno.py`.
 
 ### 4. Train and evaluate FNO-neuraloperator
 
-The optional implementation uses the same defaults and data protocol. Install
-`requirements_fno_neuralop.txt` before starting this step. Its outputs are
-isolated from the custom baseline:
+The optional implementation uses the same defaults, data protocol, checkpoint
+format, and test output format. Install `requirements_fno_neuralop.txt` before
+starting this step. Its checkpoint is isolated from the custom baseline by the
+backend in the run identifier:
 
 ```text
-results/force_load/fno_neuralop/
+trained_models_fno/force_load/std/FNO_neuralop_w32_m16x16_l4/
 ```
 
 Train it:
@@ -201,16 +207,12 @@ Evaluate the checkpoint written by that run:
 python igfe_unet/script/test_fno_neuralop.py
 ```
 
-The default run id is `fno_neuralop_mse_w32_m16x16_l4_s42`. The test script
-automatically selects the newest checkpoint and its matching config. Compare
-`metrics/summary.csv` with the custom FNO summary using the same dataset and
-noise-level rows. Programmatic callers can pass a specific checkpoint to
-`fno.test.test_fno` when a historical run must be evaluated.
+The default run id is `FNO_neuralop_w32_m16x16_l4`. Programmatic callers can
+pass a specific checkpoint to `fno.test.test_fno` when a historical run must
+be evaluated.
 
 ### 5. Inspect outputs
 
-Use `metrics/summary.csv` for the method comparison and
-`metrics/per_sample_fno_mse.csv` for distributions and robustness plots.
-Use the files in `figures/` for the representative prediction/error panels.
-Only after both implementations are validated should their summaries be
-merged into `asm_unet_compare`.
+Use the saved `L1` files and prediction arrays for the method comparison, in
+the same way as U-Net. Only after both implementations are validated should
+their results be merged into `asm_unet_compare`.

@@ -29,6 +29,7 @@ class Testing:
         self.nodesx = cfg.nodesx
         self.nodesy = cfg.nodesy
         self.config_type = cfg.config_type
+        self.dataset_type = getattr(cfg, 'dataset_type', self.config_type)
         split = str(getattr(cfg, 'eval_split', '')).strip().lower()
         self.eval_split = split if split in ['test', 'val'] else None
 
@@ -36,7 +37,7 @@ class Testing:
         self.save_format = cfg.save_format
 
         # Noise level only for mix dataset (robustness analysis)
-        if self.config_type == 'mix':
+        if self.dataset_type == 'mix':
             self.noise_level = cfg.noise_level if cfg.noise_level != 0 else None
             self.noise_levels = list(getattr(cfg, 'noise_levels', [0, 1, 3]))
             self.sample_index = int(getattr(cfg, 'sample_index', 0))
@@ -46,7 +47,7 @@ class Testing:
             self.sample_index = 0
 
         # Get evaluation types for mix dataset
-        if self.config_type == 'mix':
+        if self.dataset_type == 'mix':
             self.eval_types = cfg.eval_types
             if self.eval_types == 'all':
                 self.eval_types = ['mix', 'bil', 'exp', 'grf']
@@ -63,7 +64,7 @@ class Testing:
             self.train_path = experiment_path
             self.history_path = os.path.join(experiment_path, 'history')
             ckpt_name = os.path.join(experiment_path, 'model.pt')
-        self.net = training_manager.select_network(cfg.filters_list, cfg.kernel_size)
+        self.net = training_manager.select_network()
         self.net.load_state_dict(torch.load(ckpt_name, map_location=self.device, weights_only=True))
         self.net.to(self.device)
         self.net.eval()
@@ -85,7 +86,7 @@ class Testing:
         """Load test data based on config type."""
         load_split_data = load_validation_data if self.eval_split == 'val' else load_test_data
 
-        if self.config_type == 'mix':
+        if self.dataset_type == 'mix':
             # Load data for each type
             self.data_dict = {}
             original_data_path = self.cfg.data_path
@@ -128,7 +129,7 @@ class Testing:
 
     def compute_and_save_predictions(self):
         """Main evaluation function."""
-        if self.config_type == 'mix':
+        if self.dataset_type == 'mix':
             # Evaluate each type separately
             for data_type in self.eval_types:
                 print(f"\nEvaluating {data_type} dataset...")
@@ -140,7 +141,7 @@ class Testing:
 
     def compute_and_save_sample_panels(self):
         """Generate Chapter 6 style 3x4 panels for a fixed sample index."""
-        if self.config_type == 'mix':
+        if self.dataset_type == 'mix':
             for data_type in self.eval_types:
                 print(f"\nGenerating sample panel for {data_type} dataset...")
                 inputs, targets = self.data_dict[data_type]
@@ -424,7 +425,7 @@ class Testing:
         axes[3].plot(targets.reshape(-1, 1), targets.reshape(-1, 1),
                      label='y = x', linewidth=2, c='red')
         axes[3].scatter(targets.reshape(-1, 1), outputs.reshape(-1, 1), s=5)
-        axes[3].legend()
+        axes[3].legend(frameon=False)
         plt.tight_layout()
         if save_path:
             plt.savefig(save_path, dpi=600)

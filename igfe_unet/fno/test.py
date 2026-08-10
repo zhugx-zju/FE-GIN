@@ -1,173 +1,18 @@
-"""Testing implementation shared by both FNO backends."""
+"""Compatibility entry point for FNO evaluation.
 
-import csv
+The actual data loading and result serialization are shared with U-Net in
+``model.test``.
+"""
+
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-
-from architectures.fno import build_fno_model
-from .common import (
-    checkpoint_config_path,
-    output_root,
-    read_json,
-    resolve_checkpoint,
-    resolve_device,
-)
-from utils.utils_test import generate_noise_data, load_test_data
-
-
-def dataset_path(base_path, dataset_type):
-    base = Path(base_path)
-    dataset_type = dataset_type.lower()
-    if dataset_type == "mix":
-        return str(base)
-    return str(base.parent / f"data_{dataset_type}" / base.name)
-
-
-def metric_row(target, prediction, dataset_type, noise_level, sample_index):
-    target = np.asarray(target).reshape(-1)
-    prediction = np.asarray(prediction).reshape(-1)
-    error = target - prediction
-    denominator = np.sum(np.abs(target))
-    relative_l1 = 0.0 if np.isclose(denominator, 0.0) else np.sum(np.abs(error)) / denominator
-    return {
-        "dataset": dataset_type,
-        "noise_level": noise_level,
-        "sample_index": sample_index,
-        "relative_l1": float(relative_l1),
-        "mae": float(np.mean(np.abs(error))),
-        "rmse": float(np.sqrt(np.mean(error ** 2))),
-    }
-
-
-def save_prediction_panel(path, target, prediction, method_label):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    error = np.abs(target - prediction)
-    figure, axes = plt.subplots(1, 3, figsize=(12, 3.6), constrained_layout=True)
-    for axis, image, title in zip(
-        axes,
-        (target, prediction, error),
-        ("True modulus", f"{method_label} prediction", "Absolute error"),
-    ):
-        plot = axis.imshow(image, origin="lower", cmap="viridis")
-        axis.set_title(title)
-        axis.set_xticks([])
-        axis.set_yticks([])
-        figure.colorbar(plot, ax=axis, fraction=0.046, pad=0.04)
-    figure.savefig(path, dpi=200)
-    plt.close(figure)
-
-
-class FNOTester:
-    def __init__(self, cfg, checkpoint, output_root, model_builder=build_fno_model):
-        self.cfg = cfg
-        self.output_root = Path(output_root)
-        self.checkpoint = Path(checkpoint).resolve()
-        state = torch.load(self.checkpoint, map_location=cfg.device, weights_only=True)
-        self.net = model_builder(cfg).to(cfg.device)
-        self.net.load_state_dict(state)
-        self.net.eval()
-
-    def evaluate_dataset(self, dataset_type, noise_levels, batch_size, sample_index, max_samples=None):
-        eval_cfg = type(self.cfg)(**vars(self.cfg))
-        eval_cfg.data_path = dataset_path(self.cfg.data_path, dataset_type)
-        inputs, targets = load_test_data(eval_cfg)
-        if max_samples is not None:
-            max_samples = min(int(max_samples), inputs.shape[0])
-            inputs = inputs[:max_samples]
-            targets = targets[:max_samples]
-        print(f"Evaluating {dataset_type}: {inputs.shape[0]} samples")
-        targets_np = targets.cpu().numpy()
-        rows = []
-        for noise_level in noise_levels:
-            predictions = []
-            with torch.no_grad():
-                for start in range(0, inputs.shape[0], batch_size):
-                    end = min(start + batch_size, inputs.shape[0])
-                    batch_inputs = []
-                    for index in range(start, end):
-                        sample = inputs[index]
-                        if noise_level > 0:
-                            sample = generate_noise_data(sample, noise_level, seed=index)
-                        batch_inputs.append(sample)
-                    batch = torch.stack(batch_inputs).to(self.cfg.device)
-                    predictions.append(self.net(batch).cpu().numpy())
-            predictions = np.concatenate(predictions, axis=0)
-            rows.extend(
-                metric_row(target, prediction, dataset_type, noise_level, index)
-                for index, (target, prediction) in enumerate(zip(targets_np, predictions))
-            )
-            if noise_level == 0:
-                selected = min(max(sample_index, 0), len(predictions) - 1)
-                tag = self.cfg.model_tag
-                save_prediction_panel(
-                    self.output_root / "figures" / f"{tag}_{dataset_type}_noise_0.png",
-                    targets_np[selected],
-                    predictions[selected],
-                    self.cfg.method_label,
-                )
-                np.savez(
-                    self.output_root / "figures" / f"{tag}_{dataset_type}_sample_{selected}.npz",
-                    target=targets_np[selected],
-                    prediction=predictions[selected],
-                    error=np.abs(targets_np[selected] - predictions[selected]),
-                )
-        return rows
-
-    def evaluate(self, dataset_types, noise_levels, batch_size=32, sample_index=0, max_samples=None):
-        rows = []
-        for dataset_type in dataset_types:
-            try:
-                rows.extend(
-                    self.evaluate_dataset(
-                        dataset_type,
-                        noise_levels,
-                        batch_size,
-                        sample_index,
-                        max_samples=max_samples,
-                    )
-                )
-            except FileNotFoundError as error:
-                print(f"Skipping {dataset_type}: {error}")
-        if not rows:
-            raise RuntimeError("No test datasets were available")
-
-        per_sample_path = self.output_root / "metrics" / f"per_sample_{self.cfg.model_tag}.csv"
-        per_sample_path.parent.mkdir(parents=True, exist_ok=True)
-        with per_sample_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-            writer.writeheader()
-            writer.writerows(rows)
-
-        grouped = {}
-        for row in rows:
-            grouped.setdefault((row["dataset"], row["noise_level"]), []).append(row)
-        summary_rows = []
-        for (dataset_type, noise_level), group in sorted(grouped.items()):
-            summary_rows.append({
-                "method": self.cfg.method_label,
-                "dataset": dataset_type,
-                "noise_level": noise_level,
-                "n_samples": len(group),
-                "relative_l1_mean": float(np.mean([r["relative_l1"] for r in group])),
-                "relative_l1_std": float(np.std([r["relative_l1"] for r in group])),
-                "mae_mean": float(np.mean([r["mae"] for r in group])),
-                "rmse_mean": float(np.mean([r["rmse"] for r in group])),
-            })
-        summary_path = self.output_root / "metrics" / "summary.csv"
-        with summary_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(summary_rows[0]))
-            writer.writeheader()
-            writer.writerows(summary_rows)
-        print(f"Saved per-sample metrics: {per_sample_path}")
-        print(f"Saved summary metrics: {summary_path}")
+from model.test import Testing
+from utils.utils_process import construct_paths
 
 
 def test_fno(
     cfg,
-    model_builder=build_fno_model,
+    model_builder=None,
     checkpoint=None,
     config_path=None,
     output_root_override=None,
@@ -179,39 +24,43 @@ def test_fno(
     sample_index=None,
     max_samples=None,
 ):
-    """Evaluate from a config object, selecting the newest checkpoint by default."""
-    try:
-        checkpoint_path = resolve_checkpoint(
-            checkpoint,
-            output_root_override or cfg.output_dir,
-        )
-    except FileNotFoundError as error:
-        raise SystemExit(str(error)) from error
-    values = vars(cfg).copy()
-    saved_config_path = (
-        Path(config_path).expanduser()
-        if config_path
-        else checkpoint_config_path(checkpoint_path)
-    )
-    if saved_config_path.is_file():
-        values.update(read_json(saved_config_path))
-    elif config_path:
-        raise FileNotFoundError(f"Config does not exist: {saved_config_path}")
+    """Evaluate FNO using the same files and output format as U-Net."""
+    if model_builder is not None and "neuraloperator" in getattr(model_builder, "__module__", ""):
+        cfg.fno_backend = "neuralop"
+    if output_root_override is not None:
+        cfg.model_root_override = output_root_override
     if data_path:
-        values["data_path"] = data_path
+        cfg.data_path = data_path
     if device:
-        values["device"] = device
-    values["device"] = resolve_device(values["device"])
-    cfg = type(cfg)(**values)
-    root = output_root(output_root_override or cfg.output_dir)
-    tester = FNOTester(cfg, checkpoint_path, root, model_builder=model_builder)
-    return tester.evaluate(
-        dataset_types or cfg.dataset_types,
-        noise_levels or cfg.noise_levels,
-        batch_size=batch_size or cfg.batch_size,
-        sample_index=cfg.sample_index if sample_index is None else sample_index,
-        max_samples=max_samples,
-    )
+        cfg.device = device
+    if noise_levels is not None:
+        cfg.noise_levels = list(noise_levels)
+    if dataset_types is not None:
+        cfg.eval_types = list(dataset_types)
+    if sample_index is not None:
+        cfg.sample_index = int(sample_index)
+    if max_samples is not None:
+        configured_num = getattr(cfg, "num", "all")
+        cfg.num = (
+            int(max_samples)
+            if configured_num == "all"
+            else min(int(max_samples), int(configured_num))
+        )
+
+    experiment_path = None
+    if checkpoint:
+        experiment_path = str(Path(checkpoint).expanduser().resolve().parent)
+    else:
+        checkpoint_path, _, experiment_path = construct_paths(cfg)
+        if not Path(checkpoint_path).is_file():
+            raise SystemExit(
+                f"No checkpoint found at {checkpoint_path}. Train the model first "
+                "or pass an explicit checkpoint."
+            )
+
+    tester = Testing(cfg, experiment_path=experiment_path)
+    tester.compute_and_save_predictions()
+    return tester
 
 
-__all__ = ["FNOTester", "dataset_path", "metric_row", "test_fno"]
+__all__ = ["test_fno"]

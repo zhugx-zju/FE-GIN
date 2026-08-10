@@ -41,12 +41,20 @@ class Config:
             cfg = importlib.import_module('configs.config_bil')
         elif config_type == 'grf':
             cfg = importlib.import_module('configs.config_grf')
+        elif config_type == 'fno':
+            cfg = importlib.import_module('configs.config_fno')
+        elif config_type == 'fno_neuralop':
+            cfg = importlib.import_module('configs.config_fno_neuralop')
         else:
             raise ValueError("Invalid configuration type")
 
         # Load variables from the imported module
         self.load_config_variables(cfg)
         self.config_type = config_type
+        # Keep dataset identity separate from the model family. This allows
+        # FNO experiments to use the same mix/bil/exp/grf evaluation workflow.
+        if not hasattr(self, 'dataset_type'):
+            self.dataset_type = config_type
 
         # Fix data_path to use absolute path
         if hasattr(self, 'data_path') and not os.path.isabs(self.data_path):
@@ -134,6 +142,14 @@ def generate_experiment_id(cfg):
     if exp_id_override:
         return str(exp_id_override)
 
+    if str(getattr(cfg, 'model_type', 'unet')).lower() == 'fno':
+        backend = str(getattr(cfg, 'fno_backend', 'custom')).lower()
+        return (
+            f"FNO_{backend}_w{int(cfg.width)}"
+            f"_m{int(cfg.modes1)}x{int(cfg.modes2)}"
+            f"_l{int(cfg.n_layers)}"
+        )
+
     # Generate unique experiment identifier based on key parameters
     method_short = get_filepath(cfg.method)
     arch_id = generate_arch_id(cfg.filters_list)
@@ -178,6 +194,8 @@ def _model_root_for_config(config_type):
         return 'trained_models_exp'
     if config_type == 'grf':
         return 'trained_models_grf'
+    if config_type in ('fno', 'fno_neuralop'):
+        return 'trained_models_fno'
     raise ValueError(f"Unsupported configuration type: {config_type}")
 
 
@@ -192,7 +210,12 @@ def experiment_dir_for_config(cfg):
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
-    model_root = os.path.join(project_root, _model_root_for_config(cfg.config_type))
+    model_root_override = getattr(cfg, 'model_root_override', None)
+    model_root = (
+        os.path.abspath(model_root_override)
+        if model_root_override
+        else os.path.join(project_root, _model_root_for_config(cfg.config_type))
+    )
     load_type = str(getattr(cfg, 'load_type', 'force_load')).strip()
     group = resolve_experiment_group(cfg)
     exp_id = generate_experiment_id(cfg)
