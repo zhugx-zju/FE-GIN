@@ -160,15 +160,12 @@ results/force_load/fno_custom/
 
 ### 3. Evaluate the selected checkpoint
 
-After training, use the checkpoint and its saved configuration:
+After training, run the test script directly. It automatically selects the
+newest checkpoint under `results/force_load/fno_custom/` and loads the config
+with the same run id:
 
 ```bash
-python igfe_unet/script/test_fno.py \
-  --checkpoint results/force_load/fno_custom/models/<run_id>/model.pt \
-  --config results/force_load/fno_custom/configs/<run_id>.json \
-  --device cuda \
-  --dataset-types mix,bil,exp,grf \
-  --noise-levels 0,2,4,6,8,10
+python igfe_unet/script/test_fno.py
 ```
 
 The evaluator uses the shared fixed test-set convention and writes
@@ -199,17 +196,18 @@ python igfe_unet/script/train_fno_neuralop.py \
 Evaluate the checkpoint written by that run:
 
 ```bash
-python igfe_unet/script/test_fno_neuralop.py \
-  --checkpoint results/force_load/fno_neuralop/models/<run_id>/model.pt \
-  --config results/force_load/fno_neuralop/configs/<run_id>.json \
-  --device cuda \
-  --dataset-types mix,bil,exp,grf \
-  --noise-levels 0,2,4,6,8,10
+python igfe_unet/script/test_fno_neuralop.py
 ```
 
 The default run id is `fno_neuralop_mse_w21_m8x8_l4_s42`. Compare its
 `metrics/summary.csv` with the custom FNO summary using the same dataset and
-noise-level rows.
+noise-level rows. To select a specific historical run, pass its checkpoint;
+the matching config is inferred automatically:
+
+```bash
+python igfe_unet/script/test_fno_neuralop.py \
+  --checkpoint results/force_load/fno_neuralop/models/<run_id>/model.pt
+```
 
 ### 5. Inspect outputs
 

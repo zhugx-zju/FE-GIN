@@ -355,15 +355,11 @@ Checkpoints and metrics are written under
 data and trainer, with outputs isolated under
 `results/force_load/fno_neuralop/`; neither run overwrites the other.
 
-Evaluate the selected checkpoint on all fixed test sets and noise levels:
+Evaluate the newest custom-FNO checkpoint on all fixed test sets and noise
+levels. The script automatically loads the matching config:
 
 ```bash
-python igfe_unet/script/test_fno.py \
-  --checkpoint results/force_load/fno_custom/models/fno_mse_w21_m8x8_l4_s42/model.pt \
-  --config results/force_load/fno_custom/configs/fno_mse_w21_m8x8_l4_s42.json \
-  --device cuda \
-  --dataset-types mix,bil,exp,grf \
-  --noise-levels 0,2,4,6,8,10
+python igfe_unet/script/test_fno.py
 ```
 
 Use `results/force_load/fno_custom/metrics/summary.csv` as the input table for a later

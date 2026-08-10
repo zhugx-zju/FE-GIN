@@ -24,6 +24,30 @@ def output_root(custom_root=None):
     return root.resolve()
 
 
+def resolve_checkpoint(checkpoint=None, search_root=None):
+    """Return an explicit checkpoint or the newest checkpoint in a result root."""
+    if checkpoint:
+        path = Path(checkpoint).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Checkpoint does not exist: {path}")
+        return path
+
+    root = Path(search_root) if search_root else output_root()
+    candidates = [path for path in (root / "models").glob("*/model.pt") if path.is_file()]
+    if not candidates:
+        raise FileNotFoundError(
+            f"No checkpoint found under {root}. Train the model first or pass --checkpoint."
+        )
+    return max(candidates, key=lambda path: path.stat().st_mtime).resolve()
+
+
+def checkpoint_config_path(checkpoint):
+    """Infer the saved config path from ``models/<run_id>/model.pt``."""
+    checkpoint = Path(checkpoint).resolve()
+    run_name = checkpoint.parent.name
+    return checkpoint.parent.parent.parent / "configs" / f"{run_name}.json"
+
+
 def run_id(cfg):
     return (
         f"{getattr(cfg, 'model_tag', 'fno_mse')}_w{int(cfg.width)}"
