@@ -143,16 +143,19 @@ it without changing `config_mix.py`:
 python igfe_unet/script/train_fno.py
 ```
 
-The defaults are stored in `igfe_unet/fno/config.py`: `width=21`,
-`modes1=8`, `modes2=8`, `n_layers=4`, `n_epochs=1500`, and `seed=42`. Edit
-that file for a controlled parameter sweep; each changed configuration gets a
-separate model directory.
+The defaults are stored in `igfe_unet/fno/config.py`: `width=32`,
+`modes1=16`, `modes2=16`, `n_layers=4`, `n_epochs=1500`, and `seed=42`. The
+network settings follow a common literature-style FNO configuration. The
+optimizer, scheduler, early stopping, and batch size remain fixed to the
+repository settings. Edit the commented structural candidates in that file
+for a controlled comparison; each changed width/mode/layer configuration gets
+a separate model directory.
 
-The default model has about 454,189 trainable real-scalar parameters, compared
-with about 472,545 for the current U-Net `[2, 32, 64, 128]`. Its raw PyTorch
-tensor `numel` is smaller because the spectral weights are stored as complex
-tensors; each complex value represents two real scalars. The reported count
-uses the real-scalar convention for comparison with U-Net.
+The default model has about 4.20 million trainable real-scalar parameters. This
+is a conventional FNO capacity reference rather than a parameter-count-matched
+U-Net baseline. The legacy U-Net-size setting (`width=21`, `modes=8x8`,
+`n_layers=4`) remains available as a commented option. Complex spectral weights
+are counted as two real scalar values for comparison with U-Net.
 
 Outputs are written under:
 
@@ -198,7 +201,7 @@ Evaluate the checkpoint written by that run:
 python igfe_unet/script/test_fno_neuralop.py
 ```
 
-The default run id is `fno_neuralop_mse_w21_m8x8_l4_s42`. The test script
+The default run id is `fno_neuralop_mse_w32_m16x16_l4_s42`. The test script
 automatically selects the newest checkpoint and its matching config. Compare
 `metrics/summary.csv` with the custom FNO summary using the same dataset and
 noise-level rows. Programmatic callers can pass a specific checkpoint to

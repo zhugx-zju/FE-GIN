@@ -343,15 +343,16 @@ Set the same dataset path used by the U-Net experiments:
 export FNO_DATA_PATH=/absolute/path/to/data/data_mix/force_load
 ```
 
-Then train the default parameter-matched FNO-MSE configuration. Its editable
-parameters are in `igfe_unet/fno/config.py`:
+Then train the default literature-style FNO-MSE configuration. Its editable
+structural parameters are in `igfe_unet/fno/config.py`:
 
 ```bash
 python igfe_unet/script/train_fno.py
 ```
 
-The default configuration is `width=21`, `modes=8x8`, `layers=4`; its roughly
-454k real-scalar parameters are close to the current U-Net's roughly 473k.
+The default configuration is `width=32`, `modes=16x16`, `layers=4`; its roughly
+4.20M real-scalar parameters provide a conventional FNO capacity reference.
+The U-Net-size setting remains available as a commented configuration.
 Checkpoints and metrics are written under
 `results/force_load/fno_custom/`. The optional NeuralOperator run uses the same
 data and trainer, with outputs isolated under

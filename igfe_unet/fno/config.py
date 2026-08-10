@@ -24,43 +24,41 @@ device = "cuda"
 
 input_channels = 2
 output_channels = 1
-width = 21
-modes1 = 8
-modes2 = 8
+# Common literature-style structural setting for a 40x40 grid.
+width = 32
+modes1 = 16
+modes2 = 16
 n_layers = 4
 use_coordinates = True
 
 # ---------------------------------------------------------------------------
 # Alternative literature-style settings for the 40x40 physical-field grid.
 # These are commented candidates, not additional simultaneous defaults.
-# Uncomment one group at a time to run a capacity/implementation comparison.
-# They are common starting points in FNO studies, but are not universal
-# constants; the original paper, grid resolution, and dataset size may differ.
+# Uncomment one structural group at a time to run a comparison. The optimizer,
+# scheduler, early stopping, and batch size above stay fixed for all groups.
+# These are common starting points, not universal constants; the original paper,
+# grid resolution, and dataset size may differ.
 # ---------------------------------------------------------------------------
 # Compact literature-style FNO: moderate width and 12x12 Fourier modes.
 # width = 32
 # modes1 = 12
 # modes2 = 12
 # n_layers = 4
-# lr_start = 1e-3
-# batch_size = 32
 
 # Standard literature-style FNO: 16x16 modes with a 32-channel latent width.
-# width = 32
-# modes1 = 16
-# modes2 = 16
-# n_layers = 4
-# lr_start = 1e-3
-# batch_size = 20
+# This is the active default above.
 
-# Higher-capacity literature-style FNO: useful as a capacity upper reference,
-# but it is no longer parameter-count matched to the current U-Net.
+# Higher-capacity literature-style FNO: useful as a capacity upper reference.
 # width = 64
 # modes1 = 16
 # modes2 = 16
 # n_layers = 4
-# lr_start = 1e-3
-# batch_size = 16
+
+# Legacy parameter-matched setting: useful for a strict U-Net-size comparison.
+# width = 21
+# modes1 = 8
+# modes2 = 8
+# n_layers = 4
 
 nodesx = 40
 nodesy = 40
