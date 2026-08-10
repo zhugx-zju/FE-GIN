@@ -30,6 +30,38 @@ modes2 = 8
 n_layers = 4
 use_coordinates = True
 
+# ---------------------------------------------------------------------------
+# Alternative literature-style settings for the 40x40 physical-field grid.
+# These are commented candidates, not additional simultaneous defaults.
+# Uncomment one group at a time to run a capacity/implementation comparison.
+# They are common starting points in FNO studies, but are not universal
+# constants; the original paper, grid resolution, and dataset size may differ.
+# ---------------------------------------------------------------------------
+# Compact literature-style FNO: moderate width and 12x12 Fourier modes.
+# width = 32
+# modes1 = 12
+# modes2 = 12
+# n_layers = 4
+# lr_start = 1e-3
+# batch_size = 32
+
+# Standard literature-style FNO: 16x16 modes with a 32-channel latent width.
+# width = 32
+# modes1 = 16
+# modes2 = 16
+# n_layers = 4
+# lr_start = 1e-3
+# batch_size = 20
+
+# Higher-capacity literature-style FNO: useful as a capacity upper reference,
+# but it is no longer parameter-count matched to the current U-Net.
+# width = 64
+# modes1 = 16
+# modes2 = 16
+# n_layers = 4
+# lr_start = 1e-3
+# batch_size = 16
+
 nodesx = 40
 nodesy = 40
 num = "all"
