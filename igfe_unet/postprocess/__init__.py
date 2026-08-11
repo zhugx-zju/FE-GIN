@@ -23,6 +23,18 @@ from .gamma import (
     grouped_data_from_gamma_statistics_csv,
     plot_gamma_error_heatmaps,
 )
+from .reproducibility import (
+    METRICS,
+    relative_l1,
+    evaluate_checkpoint,
+    write_per_sample_metrics,
+    sample_std,
+    mean_ci95,
+    write_seed_summary,
+    write_cross_seed_summary,
+    write_paired_comparison,
+    plot_seed_reproducibility,
+)
 
 __all__ = [
     'find_all_experiments',
@@ -42,4 +54,14 @@ __all__ = [
     'plot_gamma_history_2x2',
     'grouped_data_from_gamma_statistics_csv',
     'plot_gamma_error_heatmaps',
+    'METRICS',
+    'relative_l1',
+    'evaluate_checkpoint',
+    'write_per_sample_metrics',
+    'sample_std',
+    'mean_ci95',
+    'write_seed_summary',
+    'write_cross_seed_summary',
+    'write_paired_comparison',
+    'plot_seed_reproducibility',
 ]

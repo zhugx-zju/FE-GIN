@@ -83,6 +83,9 @@ def _load_array_from_dir(data_dir, filename, device):
 
 
 def get_fixed_test_data_dir(cfg):
+    override = getattr(cfg, 'fixed_test_data_dir_override', None)
+    if override:
+        return Path(override).resolve()
     data_path = Path(cfg.data_path).resolve()
     if len(data_path.parents) < 2:
         raise ValueError(f'cfg.data_path has unexpected structure: {cfg.data_path}')

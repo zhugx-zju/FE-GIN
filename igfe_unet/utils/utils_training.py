@@ -4,6 +4,7 @@ import numpy as np
 import os
 from torch.utils.data import DataLoader
 from .utils_process import InvSet, PartSet
+from .reproducibility import make_dataloader_generator, seed_worker
 
 def load_data(filename, cfg, split=None):
     data_path = cfg.data_path
@@ -54,8 +55,8 @@ def load_mse_data(cfg):
         train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
                                           input, output)
     # Create DataLoader
-    train_loader = DataLoader(train_set, batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
+    train_loader = _make_loader(train_set, batch_size, cfg, shuffle=True, seed_offset=0)
+    valid_loader = _make_loader(valid_set, batch_size, cfg, shuffle=False, seed_offset=1)
     return train_loader, valid_loader
 
 def load_eleres_data(cfg):
@@ -88,8 +89,8 @@ def load_eleres_data(cfg):
         train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
                                           input, output, dof, force_ele)
     # Create DataLoader
-    train_loader = DataLoader(train_set, batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
+    train_loader = _make_loader(train_set, batch_size, cfg, shuffle=True, seed_offset=0)
+    valid_loader = _make_loader(valid_set, batch_size, cfg, shuffle=False, seed_offset=1)
     return train_loader, valid_loader
 
 def load_totres_data(cfg):
@@ -122,8 +123,8 @@ def load_totres_data(cfg):
         train_set, valid_set, _ = PartSet(input.shape[0], train_rto, valid_rto,
                                           input, output, dof, force)
     # Create DataLoader
-    train_loader = DataLoader(train_set, batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_set, batch_size, shuffle=False)
+    train_loader = _make_loader(train_set, batch_size, cfg, shuffle=True, seed_offset=0)
+    valid_loader = _make_loader(valid_set, batch_size, cfg, shuffle=False, seed_offset=1)
     return train_loader, valid_loader
 
 def save_train(train, valid, filename):
@@ -139,5 +140,20 @@ def _has_split_data(cfg, split, required_files=None):
     required = required_files or ['input.mat', 'output.mat']
     return os.path.isdir(split_path) and all(
         os.path.exists(os.path.join(split_path, filename)) for filename in required
+    )
+
+
+def _make_loader(dataset, batch_size, cfg, shuffle, seed_offset):
+    """Build a loader with one fixed order across initialization seeds."""
+    seed = int(getattr(cfg, 'data_order_seed', 42))
+    num_workers = int(getattr(cfg, 'num_workers', 0))
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        generator=make_dataloader_generator(seed, seed_offset),
+        worker_init_fn=seed_worker if num_workers > 0 else None,
+        pin_memory=bool(getattr(cfg, 'pin_memory', False)),
     )
 

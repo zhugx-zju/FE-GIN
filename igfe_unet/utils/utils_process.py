@@ -190,6 +190,10 @@ def experiment_dir_for_config(cfg):
     Explicit groups take precedence. Without one, mixed-loss methods use
     ``gamma`` and the standard physical-loss methods use ``std``.
     """
+    experiment_dir_override = getattr(cfg, 'experiment_dir_override', None)
+    if experiment_dir_override:
+        return os.path.abspath(os.fspath(experiment_dir_override))
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
     model_root = os.path.join(project_root, _model_root_for_config(cfg.config_type))
@@ -212,6 +216,11 @@ def write_config(cfg, filepath):
 
     # Write selected configuration variables to the file
     keys_to_write = list(cfg.variable_names)
+    for key in ('parameter_count', 'parameter_tensor_count'):
+        if hasattr(cfg, key) and key not in keys_to_write:
+            keys_to_write.append(key)
+    if hasattr(cfg, 'seed') and 'seed' not in keys_to_write:
+        keys_to_write.append('seed')
     if 'experiment_group' not in keys_to_write:
         keys_to_write.append('experiment_group')
     experiment_group = resolve_experiment_group(cfg)
