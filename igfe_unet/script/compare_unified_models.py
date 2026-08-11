@@ -10,6 +10,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from postprocess.common import (
     find_all_experiments,
+    infer_dataset_type,
     load_experiment_results,
     resolve_analysis_output_dir,
     save_unified_metrics_table,
@@ -28,7 +29,7 @@ for exp_info in find_all_experiments(experiment_group=TARGET_EXPERIMENT_GROUP):
         continue
     results = load_experiment_results(exp_path)
     config = results.get("config") or {}
-    dataset_type = str(config.get("dataset_type", "mix" if config_type == "mix" else config_type)).lower()
+    dataset_type = infer_dataset_type(config, config_type)
     if dataset_type != "mix":
         continue
     if str(config.get("model_type", "unet")).lower() not in {"unet", "fno"}:

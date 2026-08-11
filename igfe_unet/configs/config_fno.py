@@ -46,6 +46,7 @@ eval_types = "all"
 variable_names = [
     "lr_start", "patience_lr", "patience_stop", "batch_size", "n_epochs",
     "model_type", "fno_backend", "input_channels", "output_channels",
+    "dataset_type",
     "width", "modes1", "modes2", "n_layers", "use_coordinates",
     "geoX", "geoY", "nodesx", "nodesy", "method", "seed", "time",
 ]

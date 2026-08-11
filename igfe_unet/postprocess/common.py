@@ -481,6 +481,17 @@ def load_experiment_results(exp_path):
     return results
 
 
+def infer_dataset_type(config, config_type):
+    """Infer the dataset used by legacy configs that predate ``dataset_type``."""
+    config = config or {}
+    saved_type = config.get('dataset_type')
+    if saved_type:
+        return str(saved_type).strip().lower()
+    if str(config.get('model_type', '')).lower() == 'fno':
+        return 'mix'
+    return 'mix' if config_type == 'mix' else str(config_type).strip().lower()
+
+
 def _read_metric_csv(metrics_file):
     """Read the shared per-sample metric CSV written by ``Testing``."""
     try:
@@ -523,7 +534,7 @@ def save_unified_metrics_table(experiments_data, output_dir=None, filename='unif
     rows = []
     for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
         config = results.get('config') or {}
-        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        dataset_type = infer_dataset_type(config, config_type)
         if dataset_type != 'mix':
             continue
         requested_types = eval_types
@@ -627,9 +638,7 @@ def generate_comparison_dataframe(experiments_data):
             continue
         config = results.get('config') or {}
         method = config.get('method', 'Unknown')
-        dataset_type = str(
-            config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)
-        ).lower()
+        dataset_type = infer_dataset_type(config, config_type)
         model_type = str(config.get('model_type', 'unet')).lower()
         test_L1 = results['test_L1']
         if dataset_type == 'mix':

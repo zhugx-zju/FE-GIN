@@ -16,6 +16,7 @@ from .common import (
     _draw_grid_figure,
     _top_shared_legend_kwargs,
     extract_mix_ratio_info,
+    infer_dataset_type,
     mse_ratio_label,
 )
 
@@ -190,7 +191,7 @@ def _collect_histogram_data(experiments_data, label_mode='method'):
     data = {}
     for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
         config = results.get('config') or {}
-        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        dataset_type = infer_dataset_type(config, config_type)
         if dataset_type != 'mix':
             continue
         label = _label_for_results(results, exp_id, exp_path, label_mode)
@@ -720,7 +721,7 @@ def save_noise_statistics(experiments_data, output_dir=None, filename_suffix='',
     rows = []
     for (config_type, load_type, exp_id, exp_path), results in experiments_data.items():
         config = results.get('config') or {}
-        dataset_type = str(config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)).lower()
+        dataset_type = infer_dataset_type(config, config_type)
         if dataset_type != 'mix':
             continue
         method = config.get('method', 'Unknown')

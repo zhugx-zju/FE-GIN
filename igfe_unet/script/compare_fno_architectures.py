@@ -23,11 +23,12 @@ TARGET_BACKEND = "custom"
 TARGET_LOAD_TYPE = "force_load"
 TARGET_EXPERIMENT_GROUP = "arch"
 TARGET_METHOD = "MSE"
+TARGET_RESULTS_ROOT = "results_fno"
 
 OUTPUT_DIR = resolve_analysis_output_dir(
     TARGET_EXPERIMENT_GROUP,
     load_type=TARGET_LOAD_TYPE,
-    root_name="results",
+    root_name=TARGET_RESULTS_ROOT,
 )
 TXT_FILE = OUTPUT_DIR / f"tableC1_fno_architectures_{TARGET_BACKEND}.txt"
 
