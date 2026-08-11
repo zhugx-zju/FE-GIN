@@ -70,6 +70,7 @@ def make_config(args, model_name, seed, model_dir, data_dir):
     cfg.noise_levels = [0]
     cfg.experiment_group = "std" if spec["gamma"] is None else "gamma"
     cfg.experiment_dir_override = str(model_dir)
+    cfg.exp_id_override = f"{model_name}_seed_{int(seed)}"
 
     if args.epochs is not None:
         cfg.n_epochs = int(args.epochs)
