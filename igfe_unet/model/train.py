@@ -15,6 +15,29 @@ from architectures.losses import LocResloss, GloResloss, LocMixloss, GloMixloss
 from architectures.feminfo import LocRes, GloRes
 import time
 
+
+def _count_trainable_real_scalars(net):
+    """Count trainable parameters as real scalar values.
+
+    FNO spectral weights are complex tensors, so each complex element counts as
+    two real scalars for a fair comparison with U-Net parameters.
+    """
+    return int(sum(
+        (2 if parameter.is_complex() else 1) * parameter.numel()
+        for parameter in net.parameters()
+        if parameter.requires_grad
+    ))
+
+
+def _count_trainable_tensor_elements(net):
+    """Count trainable tensor elements without expanding complex values."""
+    return int(sum(
+        parameter.numel()
+        for parameter in net.parameters()
+        if parameter.requires_grad
+    ))
+
+
 class BaseTrainer:
     def __init__(self, net, device, cfg):
         self.net = net.to(device)
@@ -23,7 +46,15 @@ class BaseTrainer:
         self.method = cfg.method
         self.patience_stop = cfg.patience_stop
         self.patience_lr = cfg.patience_lr
+        self.parameter_count = _count_trainable_real_scalars(self.net)
+        self.parameter_tensor_count = _count_trainable_tensor_elements(self.net)
+        self.cfg.parameter_count = self.parameter_count
+        self.cfg.parameter_tensor_count = self.parameter_tensor_count
         self.ckpt_name = construct_paths(cfg)[0]
+        print(
+            f'Trainable parameters: {self.parameter_count} real scalars '
+            f'({self.parameter_tensor_count} tensor elements)'
+        )
         self.history = {
             'train_loss': [], 'valid_loss': [],
             'train_mae': [], 'valid_mae': []

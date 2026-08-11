@@ -340,9 +340,18 @@ python igfe_unet/script/test_fno_architectures.py
 python igfe_unet/script/compare_fno_architectures.py
 ```
 
-Select the architecture from the validation outputs under
-`trained_models_fno/force_load/arch/`, then copy the selected experiment
-directory into `trained_models_fno/force_load/final_model/`. Finally run:
+Select the architecture using validation MIX relative-L1 only. The selector
+does not load test result files and does not overwrite an existing final-model
+directory:
+
+```bash
+python igfe_unet/script/select_fno_baseline.py
+```
+
+The selected checkpoint is copied into
+`trained_models_fno/force_load/final_model/` with a
+`selection_metadata.json` file containing the validation score and parameter
+count. Finally run:
 
 ```bash
 python igfe_unet/script/test_fno_final_models.py
@@ -356,6 +365,20 @@ is generated with:
 ```bash
 python igfe_unet/script/compare_unified_models.py
 ```
+
+For representative prediction/error cloud maps on the same fixed-test
+samples and deterministic noise inputs, run:
+
+```bash
+python igfe_unet/script/compare_fno_unet_fields.py
+```
+
+This compares MSE-U-Net, LocMix-U-Net, GloMix-U-Net and FNO using the existing
+ASM/U-Net mesh-contour plotting conventions. It writes per-noise `.npz`
+fields, FNO-compatible result/config files, and PNG/PDF prediction and error
+panels into the existing
+`results/force_load/asm_unet_comparison/GN/sample_<index>/<dataset>/`
+hierarchy. Existing ASM/U-Net figures are preserved.
 
 The table is saved below `results/force_load/final_model/` and contains the
 model family, architecture, training time, relative L1, MAE, RMSE, and field

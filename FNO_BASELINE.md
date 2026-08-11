@@ -216,3 +216,28 @@ be evaluated.
 Use the saved `L1` files and prediction arrays for the method comparison, in
 the same way as U-Net. Only after both implementations are validated should
 their results be merged into `asm_unet_compare`.
+
+### 6. Select and visualize the baseline
+
+After an architecture sweep has produced validation outputs, select the FNO
+architecture from `all_samples_val/all_L1_val_mix.txt` only:
+
+```bash
+python igfe_unet/script/select_fno_baseline.py
+```
+
+The script records the validation score and trainable parameter count and
+copies the winner into the `final_model` group without replacing an existing
+destination. To compare representative fields with the selected MSE-U-Net,
+LocMix-U-Net, and GloMix-U-Net models on the same fixed-test samples and
+noise levels:
+
+```bash
+python igfe_unet/script/compare_fno_unet_fields.py
+```
+
+The comparison reuses the existing ASM/U-Net mesh contour and colourbar
+conventions and saves prediction/error PNG/PDF panels, per-noise `.npz`
+fields, FNO-compatible result/config files, and a metrics CSV into the
+existing `results/force_load/asm_unet_comparison/GN/sample_<index>/<dataset>/`
+hierarchy without replacing the existing ASM/U-Net figures.

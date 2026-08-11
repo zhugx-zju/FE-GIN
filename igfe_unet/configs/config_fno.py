@@ -49,4 +49,5 @@ variable_names = [
     "dataset_type",
     "width", "modes1", "modes2", "n_layers", "use_coordinates",
     "geoX", "geoY", "nodesx", "nodesy", "method", "seed", "time",
+    "parameter_count", "parameter_tensor_count",
 ]

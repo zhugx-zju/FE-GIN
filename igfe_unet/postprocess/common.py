@@ -370,6 +370,48 @@ def experiment_group_from_path(exp_path, default='std'):
     return default
 
 
+def _infer_parameter_count(config):
+    """Recover parameter count for legacy configs that predate the field."""
+    if not isinstance(config, dict):
+        return None
+    saved_count = config.get('parameter_count')
+    if saved_count is not None:
+        try:
+            return int(saved_count)
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        model_type = str(config.get('model_type', 'unet')).lower()
+        if model_type == 'fno':
+            from architectures.fno import FNO2d
+
+            model = FNO2d(
+                input_channels=int(config.get('input_channels', 2)),
+                output_channels=int(config.get('output_channels', 1)),
+                width=int(config['width']),
+                modes1=int(config['modes1']),
+                modes2=int(config['modes2']),
+                n_layers=int(config['n_layers']),
+                use_coordinates=bool(config.get('use_coordinates', True)),
+            )
+        else:
+            from architectures.unet import UNet
+
+            model = UNet(
+                config.get('filters_list', [2, 32, 64, 128]),
+                int(config.get('kernel_size', 3)),
+                use_batch_norm=bool(config.get('use_batch_norm', False)),
+            )
+        return int(sum(
+            (2 if parameter.is_complex() else 1) * parameter.numel()
+            for parameter in model.parameters()
+            if parameter.requires_grad
+        ))
+    except (ImportError, KeyError, TypeError, ValueError, RuntimeError):
+        return None
+
+
 def _is_experiment_dir(path):
     path = Path(path)
     return (
@@ -443,6 +485,10 @@ def load_experiment_results(exp_path):
         with open(config_file, 'r') as f:
             exec(f.read(), config_dict)
         results['config'] = config_dict
+        if 'parameter_count' not in config_dict:
+            inferred_count = _infer_parameter_count(config_dict)
+            if inferred_count is not None:
+                config_dict['parameter_count'] = inferred_count
         results['training_time'] = config_dict.get('time', None)
 
     for filename, train_key, valid_key in [
@@ -569,6 +615,7 @@ def save_unified_metrics_table(experiments_data, output_dir=None, filename='unif
                     'experiment_group': config.get('experiment_group', 'std'),
                     'exp_id': exp_id,
                     'method': config.get('method', 'Unknown'),
+                    'parameter_count': config.get('parameter_count'),
                     'label': ('FNO-' + backend if model_type == 'fno' else 'U-Net'),
                     'architecture': architecture,
                     'eval_type': eval_type,
@@ -623,6 +670,7 @@ def generate_comparison_dataframe(experiments_data):
         'use_batch_norm',
         'architecture',
         'gamma',
+        'parameter_count',
         'training_time',
         'test_L1_mean',
         'test_L1_std',
@@ -660,6 +708,7 @@ def generate_comparison_dataframe(experiments_data):
             'use_batch_norm': bool(config.get('use_batch_norm', False)),
             'architecture': _architecture_label(config),
             'gamma': config.get('gamma', None),
+            'parameter_count': config.get('parameter_count'),
             'training_time': results['training_time'],
             'test_L1_mean': test_results.get('mean', np.nan),
             'test_L1_std': test_results.get('std', np.nan),
@@ -704,13 +753,16 @@ def generate_paraset_table(df):
         '=' * 100,
         'Table 1: ParaSet Comparison - Architecture Sweep on Mix Test Set',
         '=' * 100,
-        f"{'Experiment ID':<30} {'Architecture':<30} {'Time(s)':<10} {'Mean':<12} {'Variance':<12}",
+        f"{'Experiment ID':<30} {'Architecture':<30} {'Params':<12} {'Time(s)':<10} {'Mean':<12} {'Variance':<12}",
         '-' * 100,
     ]
-    for _, row in mix_df[['exp_id', 'architecture', 'training_time',
-                          'test_L1_mean', 'test_L1_var']].iterrows():
+    for _, row in mix_df[['exp_id', 'architecture', 'parameter_count',
+                          'training_time', 'test_L1_mean', 'test_L1_var']].iterrows():
+        parameter_count = row['parameter_count']
+        parameter_text = 'NA' if pd.isna(parameter_count) else f'{float(parameter_count):.0f}'
         lines.append(f"{row['exp_id']:<30} {str(row['architecture']):<30} "
-                     f"{row['training_time']:<10.2f} {row['test_L1_mean']:<12.6f} {row['test_L1_var']:<12.6f}")
+                     f"{parameter_text:<12} {row['training_time']:<10.2f} "
+                     f"{row['test_L1_mean']:<12.6f} {row['test_L1_var']:<12.6f}")
     lines.append('=' * 100)
     return '\n'.join(lines)
 

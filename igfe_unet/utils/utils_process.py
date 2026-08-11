@@ -235,6 +235,9 @@ def write_config(cfg, filepath):
 
     # Write selected configuration variables to the file
     keys_to_write = list(cfg.variable_names)
+    for key in ('parameter_count', 'parameter_tensor_count'):
+        if hasattr(cfg, key) and key not in keys_to_write:
+            keys_to_write.append(key)
     if 'experiment_group' not in keys_to_write:
         keys_to_write.append('experiment_group')
     experiment_group = resolve_experiment_group(cfg)
