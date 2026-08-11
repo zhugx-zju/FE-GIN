@@ -603,6 +603,9 @@ def _load_specific_test_l1_stats(exp_path, eval_type='mix', noise_level=0.0, spl
 def generate_comparison_dataframe(experiments_data):
     columns = [
         'config_type',
+        'dataset_type',
+        'model_type',
+        'fno_backend',
         'load_type',
         'exp_id',
         'method',
@@ -624,8 +627,12 @@ def generate_comparison_dataframe(experiments_data):
             continue
         config = results.get('config') or {}
         method = config.get('method', 'Unknown')
+        dataset_type = str(
+            config.get('dataset_type', 'mix' if config_type == 'mix' else config_type)
+        ).lower()
+        model_type = str(config.get('model_type', 'unet')).lower()
         test_L1 = results['test_L1']
-        if config_type == 'mix':
+        if dataset_type == 'mix':
             test_results = _load_specific_test_l1_stats(exp_path, eval_type='mix', noise_level=0.0, split='test')
         else:
             test_results = None
@@ -635,11 +642,14 @@ def generate_comparison_dataframe(experiments_data):
 
         row = {
             'config_type': config_type,
+            'dataset_type': dataset_type,
+            'model_type': model_type,
+            'fno_backend': config.get('fno_backend', '') if model_type == 'fno' else '',
             'load_type': load_type,
             'exp_id': exp_id,
             'method': method,
             'use_batch_norm': bool(config.get('use_batch_norm', False)),
-            'architecture': str(config.get('filters_list', [])),
+            'architecture': _architecture_label(config),
             'gamma': config.get('gamma', None),
             'training_time': results['training_time'],
             'test_L1_mean': test_results.get('mean', np.nan),
@@ -647,7 +657,7 @@ def generate_comparison_dataframe(experiments_data):
             'test_L1_var': test_results.get('variance', np.nan),
         }
         for noise_level in [2.0, 4.0]:
-            if config_type == 'mix':
+            if dataset_type == 'mix':
                 noise_stats = _load_specific_test_l1_stats(
                     exp_path, eval_type='mix', noise_level=noise_level, split='test'
                 )
@@ -662,10 +672,23 @@ def generate_comparison_dataframe(experiments_data):
     return pd.DataFrame(rows, columns=columns)
 
 
+def _architecture_label(config):
+    """Return a comparable architecture label for U-Net and FNO configs."""
+    if str(config.get('model_type', 'unet')).lower() == 'fno':
+        return (
+            f"width={config.get('width')}, modes={config.get('modes1')}x{config.get('modes2')}, "
+            f"layers={config.get('n_layers')}"
+        )
+    return str(config.get('filters_list', []))
+
+
 def generate_paraset_table(df):
     if df is None or df.empty or 'config_type' not in df.columns:
         return None
-    mix_df = df[df['config_type'] == 'mix'].copy()
+    if 'dataset_type' in df.columns:
+        mix_df = df[df['dataset_type'].astype(str).str.lower() == 'mix'].copy()
+    else:
+        mix_df = df[df['config_type'] == 'mix'].copy()
     if mix_df.empty:
         return None
     lines = [

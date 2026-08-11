@@ -336,6 +336,8 @@ For the FNO architecture study, run the following U-Net-style sequence:
 ```bash
 python igfe_unet/script/train_fno_architectures.py
 python igfe_unet/script/val_fno_architectures.py
+python igfe_unet/script/test_fno_architectures.py
+python igfe_unet/script/compare_fno_architectures.py
 ```
 
 Select the architecture from the validation outputs under
