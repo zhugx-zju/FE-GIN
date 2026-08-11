@@ -1008,7 +1008,7 @@ def plot_lcurve_png(lcurve_results, save_dir, dpi=600, filename_suffix=''):
     ax1.set_ylabel(r'Regularization $||\nabla E||_2$')
     ax1.set_title('L-curve')
     ax1.grid(True, which='both', linestyle='--', alpha=0.3)
-    ax1.legend(loc='best', fontsize=9, frameon=True, edgecolor='black')
+    ax1.legend(loc='best', fontsize=9, frameon=False)
     fig1.tight_layout()
     fig1.savefig(os.path.join(save_dir, f'lcurve{filename_suffix}.png'), dpi=dpi, bbox_inches='tight')
     plt.close(fig1)
@@ -1024,7 +1024,7 @@ def plot_lcurve_png(lcurve_results, save_dir, dpi=600, filename_suffix=''):
     ax2.set_ylabel('Curvature')
     ax2.set_title('Curvature vs gamma')
     ax2.grid(True, which='both', linestyle='--', alpha=0.3)
-    ax2.legend(loc='best', fontsize=9, frameon=True, edgecolor='black')
+    ax2.legend(loc='best', fontsize=9, frameon=False)
     fig2.tight_layout()
     fig2.savefig(os.path.join(save_dir, f'curvature_vs_gamma{filename_suffix}.png'), dpi=dpi, bbox_inches='tight')
     plt.close(fig2)
@@ -1051,7 +1051,7 @@ def plot_iteration_png(results, save_dir, noise_percent, dpi=600, filename_suffi
     axes[0].set_xlabel('Iteration')
     axes[0].set_ylabel('Objective')
     axes[0].grid(True, linestyle='--', alpha=0.3)
-    axes[0].legend(loc='best', fontsize=8, frameon=True, edgecolor='black')
+    axes[0].legend(loc='best', fontsize=8, frameon=False)
 
     if len(grad) > 0:
         axes[1].semilogy(np.arange(len(grad)), grad, 'k-', linewidth=1.8)

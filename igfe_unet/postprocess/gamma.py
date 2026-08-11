@@ -569,13 +569,13 @@ def plot_gamma_history_2x2(experiments_data, output_dir=None,
         ax_loss.set_title(f"{METHOD_DISPLAY.get(mix_method, mix_method)}: Loss")
         ax_loss.set_xlabel('Epoch')
         ax_loss.set_ylabel('Loss')
-        ax_loss.legend(fontsize=8, frameon=True, edgecolor='black', facecolor='white')
+        ax_loss.legend(fontsize=8, frameon=False)
         _apply_axis_style(ax_loss)
 
         ax_mae.set_title(f"{METHOD_DISPLAY.get(mix_method, mix_method)}: MAE")
         ax_mae.set_xlabel('Epoch')
         ax_mae.set_ylabel('MAE')
-        ax_mae.legend(fontsize=8, frameon=True, edgecolor='black', facecolor='white')
+        ax_mae.legend(fontsize=8, frameon=False)
         _apply_axis_style(ax_mae)
 
     _add_panel_labels(
