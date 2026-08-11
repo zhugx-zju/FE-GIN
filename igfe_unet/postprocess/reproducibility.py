@@ -36,6 +36,7 @@ def evaluate_checkpoint(cfg, checkpoint_path, batch_size):
     network.load_state_dict(
         torch.load(checkpoint_path, map_location=cfg.device, weights_only=True)
     )
+    network = network.to(cfg.device)
     network.eval()
 
     rows = []
