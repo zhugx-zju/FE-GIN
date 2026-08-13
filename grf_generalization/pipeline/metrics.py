@@ -1,4 +1,4 @@
-"""Metrics shared by the generalization evaluation scripts."""
+"""Metrics shared by the GRF generalization evaluation pipeline."""
 
 from __future__ import annotations
 

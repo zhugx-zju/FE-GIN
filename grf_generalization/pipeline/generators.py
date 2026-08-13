@@ -185,6 +185,7 @@ def build_generalization_dataset(
     transition_width_mm: float = 0.75,
     nodes_x: int = 40,
     nodes_y: int = 40,
+    include_steep_gradient: bool = True,
 ) -> Path:
     """Generate all test-only cases and return the manifest path."""
     if nodes_x < 2 or nodes_y < 2:
@@ -221,26 +222,27 @@ def build_generalization_dataset(
         )
 
     steep_seed = int(seed) + 1000
-    steep_fields, steep_metadata = generate_steep_gradient_fields(
-        mesh,
-        steep_count,
-        steep_seed,
-        transition_width_mm=float(transition_width_mm),
-    )
-    steep_inputs = solve_displacements(steep_fields, mesh)
-    steep_id = "steep_sigmoid"
-    _write_condition(output_root / steep_id, steep_inputs, steep_fields, steep_metadata)
-    conditions.append(
-        {
-            "condition_id": steep_id,
-            "field_type": "continuous_sigmoid",
-            "transition_width_10_90_mm": float(transition_width_mm),
-            "distribution_status": "OOD",
-            "sample_count": int(steep_count),
-            "seed": steep_seed,
-            "directory": steep_id,
-        }
-    )
+    if include_steep_gradient:
+        steep_fields, steep_metadata = generate_steep_gradient_fields(
+            mesh,
+            steep_count,
+            steep_seed,
+            transition_width_mm=float(transition_width_mm),
+        )
+        steep_inputs = solve_displacements(steep_fields, mesh)
+        steep_id = "steep_sigmoid"
+        _write_condition(output_root / steep_id, steep_inputs, steep_fields, steep_metadata)
+        conditions.append(
+            {
+                "condition_id": steep_id,
+                "field_type": "continuous_sigmoid",
+                "transition_width_10_90_mm": float(transition_width_mm),
+                "distribution_status": "OOD",
+                "sample_count": int(steep_count),
+                "seed": steep_seed,
+                "directory": steep_id,
+            }
+        )
 
     manifest = {
         "schema_version": 1,
@@ -252,7 +254,8 @@ def build_generalization_dataset(
             "grf_conditions_are_paired": True,
             "grf_pairing_variables_held_fixed": ["standard_normal_draws", "e_max_order"],
             "variable_changed_between_grf_conditions": "correlation_length_mm",
-            "steep_gradient_uses_separate_seed": True,
+            "steep_gradient_included": bool(include_steep_gradient),
+            "steep_gradient_uses_separate_seed": bool(include_steep_gradient),
         },
         "geometry": {
             "width_mm": 9.0,

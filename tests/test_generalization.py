@@ -14,15 +14,30 @@ for import_root in (PROJECT_ROOT, PROJECT_ROOT / "igfe_unet"):
         sys.path.insert(0, str(import_root))
 
 from asm_log.fgm_asm.mesh import MeshInfo
-from generalization.data import (
+from grf_generalization.pipeline.generators import (
     build_generalization_dataset,
     generate_grf_fields,
     generate_steep_gradient_fields,
 )
-from generalization.metrics import apply_relative_noise, field_metrics
+from grf_generalization.pipeline.metrics import apply_relative_noise, field_metrics
+from grf_generalization.config import get_config
+from grf_generalization.pipeline.visualization import build_paper_table, summarize_metrics
 
 
 class GeneralizationTests(unittest.TestCase):
+    def test_runner_scripts_do_not_define_main(self):
+        for runner in ('run_generate_cases.py', 'run_compare_cases.py'):
+            source = (PROJECT_ROOT / 'grf_generalization' / runner).read_text(encoding='utf-8')
+            self.assertNotIn('def main(', source)
+            self.assertNotIn("if __name__ == '__main__'", source)
+            self.assertNotIn('if __name__ == "__main__"', source)
+
+    def test_config_contains_three_additional_grf_cases(self):
+        cfg = get_config(PROJECT_ROOT)
+        configured = [case['condition'] for case in cfg['cases']]
+        self.assertEqual(configured, ['grf_l25', 'grf_l20', 'grf_l15', 'grf_l10'])
+        self.assertEqual(cfg['noise_levels'], [0, 2, 4, 6, 8, 10])
+
     def test_grf_is_reproducible_and_shorter_length_is_rougher(self):
         mesh = MeshInfo(9.0, 9.0, 11, 11)
         smooth, _ = generate_grf_fields(mesh, 25.0, 12, seed=123)
@@ -101,6 +116,37 @@ class GeneralizationTests(unittest.TestCase):
                 outputs = loadmat(condition_dir / "output.mat")["E"]
                 self.assertEqual(inputs.shape, (1, 2, 6, 6))
                 self.assertEqual(outputs.shape, (1, 6, 6))
+
+    def test_paper_table_has_noise_model_rows_and_four_grf_groups(self):
+        per_sample = []
+        for noise in (0.0, 2.0):
+            for model_index, model in enumerate(('MSE-M', 'LM-M', 'GM-M')):
+                for condition_index, condition in enumerate(
+                    ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10')
+                ):
+                    for sample_id in range(3):
+                        per_sample.append(
+                            {
+                                'model': model,
+                                'condition_id': condition,
+                                'field_type': 'grf',
+                                'distribution_status': 'ID' if condition == 'grf_l25' else 'OOD',
+                                'correlation_length_mm': float(condition.split('l')[-1]),
+                                'transition_width_10_90_mm': '',
+                                'noise_level_percent': noise,
+                                'sample_id': sample_id,
+                                'relative_l1': 0.01 * (1 + model_index + condition_index + sample_id),
+                                'mae': 0.1,
+                                'rmse': 0.2,
+                            }
+                        )
+        table = build_paper_table(summarize_metrics(per_sample))
+        self.assertEqual(len(table), 6)
+        self.assertEqual([row['model'] for row in table[:3]], ['MSE-M', 'LM-M', 'GM-M'])
+        for row in table:
+            for condition in ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10'):
+                self.assertIn(f'{condition}_mean', row)
+                self.assertIn(f'{condition}_std', row)
 
 
 if __name__ == "__main__":

@@ -15,26 +15,42 @@ The RBF covariance and `tanh` mapping reproduce `GRF_Generate.m`. The generated 
 
 The four GRF conditions form a paired test: they use the same independently generated latent normal samples and the same `E_max` ordering, while only the covariance length changes. This isolates the correlation-length effect. The continuous steep-gradient cases use a separate seed.
 
+## Code organization
+
+The workflow follows the same organization as `asm_unet_compare`:
+
+```text
+grf_generalization/
+├── config.py
+├── run_generate_cases.py
+├── run_compare_cases.py
+└── pipeline/
+    ├── common.py
+    ├── data_generation.py
+    ├── evaluation.py
+    └── visualization.py
+```
+
+The two run scripts contain only editable case/config output and direct calls to pipeline functions. They do not define or invoke a `main()` function. Data generation, inference, statistics, and plotting are implemented in the package.
+
+When running from a Git worktree while ignored model assets remain in the primary checkout, set `FE_GIN_ASSET_ROOT` to that checkout before running the comparison. A normal checkout needs no override.
+
 ## 1. Generate independent test cases
 
 From the repository root:
 
 ```bash
-python igfe_unet/script/generate_generalization_test_set.py
+python grf_generalization/run_generate_cases.py
 ```
 
-For a quick smoke test:
-
-```bash
-python igfe_unet/script/generate_generalization_test_set.py --samples 1 --steep-samples 1
-```
+For a quick smoke test, temporarily change `sample_count` and `steep_sample_count` in `grf_generalization/config.py` to `1`.
 
 The dataset is written below `data/generalization_test_sets/force_load/`. Its manifest explicitly marks every condition as test-only and records the mesh, seeds, correlation lengths, forward-problem parameters, sample metadata, and file hashes.
 
 ## 2. Evaluate the unchanged final models
 
 ```bash
-python igfe_unet/script/evaluate_generalization.py --device cpu
+python grf_generalization/run_compare_cases.py
 ```
 
 The default final-model directory is:
@@ -43,11 +59,7 @@ The default final-model directory is:
 trained_models_mix/force_load/final_model/
 ```
 
-Optional deterministic noise evaluation can be requested without changing the clean-test default:
-
-```bash
-python igfe_unet/script/evaluate_generalization.py --device cpu --noise-levels 0 2 4 6 8 10
-```
+The default comparison uses deterministic `0, 2, 4, 6, 8, 10%` noise, matching the manuscript robustness table. These levels, representative cases, models, device, and output paths are edited in `grf_generalization/config.py`.
 
 Results are saved under:
 
@@ -56,11 +68,17 @@ results/revision/grf_ood/
 ├── manifests/
 ├── metrics/per_sample_all.csv
 ├── metrics/ood_summary.csv
+├── metrics/grf_noise_statistics_table.csv
 ├── figures/grf_correlation_length.(png|pdf)
-└── figures/ood_examples.(png|pdf)
+├── figures/grf_noise_statistics_table.(png|pdf)
+└── cases/grf_l{25,20,15,10}/sample_<index>/
+    ├── prediction_*.png
+    └── error_*.png
 ```
 
 `ood_summary.csv` reports relative L1, MAE and RMSE. The column `relative_l1_ratio_to_l25` is the error ratio relative to the `l=25 mm` reference under the same model and noise level. Values above one indicate degradation relative to the original GRF condition.
+
+`grf_noise_statistics_table.csv` follows the manuscript table layout: rows are grouped by noise level and model, while columns are grouped by `GRF l=25/20/15/10 mm`, each with relative-L1 `mean` and `std`. The PNG/PDF version reproduces the same grouped presentation for direct use when preparing the response or manuscript.
 
 ## Interpretation boundary
 
