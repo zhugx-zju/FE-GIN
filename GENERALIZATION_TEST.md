@@ -64,7 +64,7 @@ The default comparison uses deterministic `0, 2, 4, 6, 8, 10%` noise, matching t
 Results are saved under:
 
 ```text
-results/revision/grf_ood/
+results/grf_ood/
 ├── manifests/
 ├── metrics/per_sample_all.csv
 ├── metrics/ood_summary.csv

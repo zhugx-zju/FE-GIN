@@ -10,7 +10,7 @@ def get_config(project_root=None, asset_root=None):
     return {
         # Test-only generated data and analysis outputs.
         'data_dir': project_root / 'data' / 'generalization_test_sets' / 'force_load',
-        'output_dir': project_root / 'results' / 'revision' / 'grf_ood',
+        'output_dir': project_root / 'results' / 'grf_ood',
         # Set asset_root separately when code runs from a Git worktree whose
         # ignored data/model assets live in the primary checkout.
         'asset_root': asset_root,
