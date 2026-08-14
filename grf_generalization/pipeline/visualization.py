@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 from .common import (
     CONDITION_DISPLAY,
@@ -239,30 +240,30 @@ def _draw_field(axis, values, cmap, vmin=None, vmax=None):
     return image
 
 
-def _row_label(row_index, noise_level):
-    return f"({chr(ord('a') + row_index)}) Noise {float(noise_level):g}%"
+def _row_tag(row_index):
+    return f"({chr(ord('a') + row_index)})"
 
 
-def _add_row_labels(figure, first_axes, noise_levels, x_pad=0.014):
-    for row_index, noise_level in enumerate(noise_levels):
-        position = first_axes[row_index].get_position()
-        figure.text(
-            position.x0 - x_pad,
-            0.5 * (position.y0 + position.y1),
-            _row_label(row_index, noise_level),
-            va='center',
-            ha='right',
-            fontsize=10,
-            fontweight='bold',
+def _add_row_tags(first_axes, x=-0.16, y=1.10, fontsize=16):
+    for row_index, axis in sorted(first_axes.items()):
+        axis.text(
+            x,
+            y,
+            _row_tag(row_index),
+            transform=axis.transAxes,
+            fontsize=fontsize,
+            fontweight='normal',
+            va='top',
+            ha='left',
         )
 
 
-def _add_panel_labels(axes, x=-0.16, y=1.08, fontsize=15):
+def _add_panel_labels(axes, x=-0.16, y=1.08, fontsize=16):
     for panel_index, axis in enumerate(np.asarray(axes).ravel()):
         axis.text(
             x,
             y,
-            f"({chr(ord('a') + panel_index)})",
+            _row_tag(panel_index),
             transform=axis.transAxes,
             fontsize=fontsize,
             fontweight='normal',
@@ -271,11 +272,22 @@ def _add_panel_labels(axes, x=-0.16, y=1.08, fontsize=15):
         )
 
 
+def _style_field_colorbar(colorbar, label):
+    colorbar.ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    colorbar.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    colorbar.set_label(label, fontsize=15, fontweight='normal')
+    colorbar.ax.tick_params(
+        direction='in', which='both', labelsize=15, length=4.0, width=0.8
+    )
+    colorbar.outline.set_linewidth(0.8)
+
+
 def _save_figure_pair(figure, png_path, dpi):
     png_path = Path(png_path)
     pdf_path = png_path.with_suffix('.pdf')
     for path in (png_path, pdf_path):
-        figure.savefig(path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+        save_dpi = dpi if path.suffix.lower() == '.png' else None
+        figure.savefig(path, dpi=save_dpi, bbox_inches='tight', pad_inches=0.03)
 
 
 def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi=600):
@@ -289,8 +301,8 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
     field_min = float(np.min(target))
     field_max = float(np.max(target))
 
-    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.45 * len(noise_levels) + 0.60))
-    grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.055)
+    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.60 * len(noise_levels) + 0.75))
+    grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.085)
     first_axes = {}
     image = None
     for row_index, noise_level in enumerate(noise_levels):
@@ -304,21 +316,20 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
                 field_max,
             )
             if row_index == 0:
-                axis.set_title(method, fontsize=11, fontweight='bold', pad=7)
+                axis.set_title(method, fontsize=16, fontweight='normal', pad=0)
             if column_index == 0:
                 first_axes[row_index] = axis
-    figure.subplots_adjust(left=0.115, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.055)
-    _add_row_labels(figure, first_axes, noise_levels)
+    figure.subplots_adjust(left=0.070, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.085)
+    _add_row_tags(first_axes, x=-0.16, y=1.10, fontsize=16)
     color_axis = figure.add_axes([0.915, 0.14, 0.016, 0.74])
     colorbar = figure.colorbar(image, cax=color_axis)
-    colorbar.set_label('Modulus (MPa)', fontsize=10, fontweight='bold')
-    colorbar.ax.tick_params(labelsize=9)
+    _style_field_colorbar(colorbar, 'Modulus (MPa)')
     prediction_path = case_dir / f'prediction_{condition_id}_sample_{sample_index}.png'
     _save_figure_pair(figure, prediction_path, dpi)
     plt.close(figure)
 
-    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.45 * len(noise_levels) + 0.60))
-    grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.055)
+    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.60 * len(noise_levels) + 0.75))
+    grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.085)
     first_axes = {}
     image = None
     for row_index, noise_level in enumerate(noise_levels):
@@ -333,25 +344,30 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
                 RELATIVE_ERROR_COLORBAR_MAX_PCT,
             )
             axis.text(
-                0.03,
-                0.96,
+                0.00,
+                0.969,
                 f"$L_1$={result['relative_l1']:.2e}",
                 transform=axis.transAxes,
+                ha='left',
                 va='top',
-                fontsize=8,
+                fontsize=11,
                 color='white',
-                bbox={'facecolor': 'black', 'alpha': 0.35, 'edgecolor': 'none', 'pad': 2},
+                bbox={
+                    'facecolor': 'black',
+                    'alpha': 0.35,
+                    'edgecolor': 'none',
+                    'boxstyle': 'square,pad=0.0',
+                },
             )
             if row_index == 0:
-                axis.set_title(method, fontsize=11, fontweight='bold', pad=7)
+                axis.set_title(method, fontsize=16, fontweight='normal', pad=2)
             if column_index == 0:
                 first_axes[row_index] = axis
-    figure.subplots_adjust(left=0.115, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.055)
-    _add_row_labels(figure, first_axes, noise_levels)
+    figure.subplots_adjust(left=0.070, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.085)
+    _add_row_tags(first_axes, x=-0.16, y=1.10, fontsize=16)
     color_axis = figure.add_axes([0.915, 0.14, 0.016, 0.74])
     colorbar = figure.colorbar(image, cax=color_axis)
-    colorbar.set_label('Relative error (%)', fontsize=10, fontweight='bold')
-    colorbar.ax.tick_params(labelsize=9)
+    _style_field_colorbar(colorbar, 'Relative error (%)')
     error_path = case_dir / f'error_{condition_id}_sample_{sample_index}.png'
     _save_figure_pair(figure, error_path, dpi)
     plt.close(figure)
@@ -384,7 +400,7 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
                 linewidth=1.4,
                 capsize=2.5,
             )
-        axis.set_title(f'Noise level {noise_level:g}%', fontsize=12, fontweight='bold')
+        axis.set_title(f'Noise level {noise_level:g}%', fontsize=16, fontweight='normal')
         axis.set_xticks([10, 15, 20, 25])
         axis.tick_params(direction='in', labelsize=10, width=0.8)
     for axis in axes[-1]:
@@ -392,7 +408,7 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
     for axis in axes[:, 0]:
         axis.set_ylabel(r'Relative $L_1$ error (%)')
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    _add_panel_labels(axes, x=-0.14, y=1.05, fontsize=12)
+    _add_panel_labels(axes, x=-0.14, y=1.05, fontsize=16)
     figure.legend(
         handles,
         labels,

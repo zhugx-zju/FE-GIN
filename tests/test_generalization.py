@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.io import loadmat
 
@@ -34,8 +35,17 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(matplotlib.rcParams['mathtext.rm'], 'Times New Roman')
         self.assertEqual(matplotlib.rcParams['font.size'], 10.0)
         self.assertEqual(matplotlib.rcParams['axes.linewidth'], 0.8)
-        self.assertEqual(visualization._row_label(0, 0.0), '(a) Noise 0%')
-        self.assertEqual(visualization._row_label(5, 10.0), '(f) Noise 10%')
+        self.assertEqual(visualization._row_tag(0), '(a)')
+        self.assertEqual(visualization._row_tag(5), '(f)')
+
+        figure, axis = plt.subplots()
+        image = axis.imshow(np.arange(4).reshape(2, 2))
+        colorbar = figure.colorbar(image)
+        visualization._style_field_colorbar(colorbar, 'Modulus (MPa)')
+        self.assertEqual(colorbar.ax.yaxis.label.get_fontweight(), 'normal')
+        self.assertEqual(colorbar.ax.yaxis.label.get_fontsize(), 15.0)
+        self.assertEqual(colorbar.ax.yaxis.get_major_formatter().format_data(1.25), '1.25')
+        plt.close(figure)
 
     def test_case_panels_include_project_relative_error_percent(self):
         target = np.asarray([[1.0, 2.0], [4.0, 8.0]])
