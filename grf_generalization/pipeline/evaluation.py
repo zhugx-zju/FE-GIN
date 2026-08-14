@@ -61,21 +61,42 @@ SUMMARY_FIELDS = [
 ]
 
 
-def _validate_cases(cfg, conditions):
-    condition_ids = {condition['condition_id'] for condition in conditions}
+def _validate_case_group(raw_cases, condition_ids, required, output_group):
     cases = []
-    for raw_case in cfg.get('cases', []):
+    for raw_case in raw_cases:
         condition_id = str(raw_case['condition'])
         if condition_id not in condition_ids:
             raise KeyError(f'Configured case condition is absent from manifest: {condition_id}')
         sample_index = int(raw_case.get('sample_index', 0))
-        cases.append({'condition': condition_id, 'sample_index': sample_index})
-    required = {'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'}
+        cases.append(
+            {
+                'condition': condition_id,
+                'sample_index': sample_index,
+                'output_group': output_group,
+            }
+        )
     configured = {case['condition'] for case in cases}
-    missing = sorted(required - configured)
+    missing = sorted(set(required) - configured)
     if missing:
         raise ValueError(f'Missing required additional GRF cases: {missing}')
     return cases
+
+
+def _validate_cases(cfg, conditions):
+    condition_ids = {condition['condition_id'] for condition in conditions}
+    cases = _validate_case_group(
+        cfg.get('cases', []),
+        condition_ids,
+        {'grf_l20', 'grf_l15', 'grf_l10', 'grf_l8'},
+        'cases',
+    )
+    supplementary_cases = _validate_case_group(
+        cfg.get('supplementary_cases', []),
+        condition_ids,
+        {'grf_l5'},
+        str(Path('supplementary') / 'cases'),
+    )
+    return cases, supplementary_cases
 
 
 def _build_case_panels(cases, condition_data, prediction_cache, noise_levels):
@@ -84,7 +105,11 @@ def _build_case_panels(cases, condition_data, prediction_cache, noise_levels):
         condition_id = case['condition']
         _, targets = condition_data[condition_id]
         sample_index = min(max(int(case['sample_index']), 0), len(targets) - 1)
-        resolved_case = {'condition': condition_id, 'sample_index': sample_index}
+        resolved_case = {
+            'condition': condition_id,
+            'sample_index': sample_index,
+            'output_group': case.get('output_group', 'cases'),
+        }
         method_panels = {}
         for model in METHOD_ORDER:
             noise_panels = {}
@@ -126,7 +151,7 @@ def run_generalization_comparison(cfg):
 
     manifest_path, manifest = load_dataset_manifest(data_root)
     conditions = list(manifest['conditions'])
-    cases = _validate_cases(cfg, conditions)
+    cases, supplementary_cases = _validate_cases(cfg, conditions)
     condition_by_id = {condition['condition_id']: condition for condition in conditions}
     condition_data = {
         condition['condition_id']: load_condition(data_root, condition)
@@ -184,6 +209,17 @@ def run_generalization_comparison(cfg):
     per_sample_csv = write_csv(metrics_dir / 'per_sample_all.csv', PER_SAMPLE_FIELDS, rows)
     summaries = summarize_metrics(rows)
     summary_csv = write_csv(metrics_dir / 'ood_summary.csv', SUMMARY_FIELDS, summaries)
+    stress_condition_ids = {
+        case['condition'] for case in supplementary_cases
+    }
+    stress_summaries = [
+        row for row in summaries if row['condition_id'] in stress_condition_ids
+    ]
+    stress_summary_csv = write_csv(
+        output_root / 'supplementary' / 'metrics' / 'grf_l5_stress_summary.csv',
+        SUMMARY_FIELDS,
+        stress_summaries,
+    )
     paper_table_csv = save_paper_table_csv(
         metrics_dir / 'grf_noise_statistics_table.csv', summaries
     )
@@ -202,7 +238,12 @@ def run_generalization_comparison(cfg):
     )
 
     case_outputs = {}
-    panels = _build_case_panels(cases, condition_data, prediction_cache, noise_levels)
+    panels = _build_case_panels(
+        cases + supplementary_cases,
+        condition_data,
+        prediction_cache,
+        noise_levels,
+    )
     for condition_id, (case, target, method_panels) in panels.items():
         prediction_path, error_path = plot_case_comparison(
             output_root,
@@ -227,6 +268,7 @@ def run_generalization_comparison(cfg):
         'noise_levels_percent': noise_levels,
         'models': model_manifest,
         'cases': cases,
+        'supplementary_cases': supplementary_cases,
         'case_outputs': case_outputs,
         'paper_table_conditions': list(GRF_CONDITION_ORDER),
     }
@@ -237,6 +279,7 @@ def run_generalization_comparison(cfg):
     return {
         'per_sample_csv': per_sample_csv,
         'summary_csv': summary_csv,
+        'stress_summary_csv': stress_summary_csv,
         'paper_table_csv': paper_table_csv,
         'paper_table_png': paper_table_png,
         'paper_table_pdf': paper_table_pdf,

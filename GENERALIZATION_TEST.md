@@ -1,112 +1,118 @@
-# GRF correlation-length and continuous-gradient generalization test
+# GRF correlation-length generalization test
 
-This workflow performs a small, test-only experiment for Reviewer 8, Comment 6. It keeps the three selected `final_model` checkpoints unchanged and evaluates them on independently generated fields.
+This workflow performs an independent, test-only experiment for Reviewer 8,
+Comment 6. It evaluates the three unchanged `final_model` checkpoints; it does
+not retrain the networks or modify `config_mix.py`.
 
-## Scope
+## Test design
 
-- GRF correlation lengths: `25, 20, 15, 10, 5 mm`;
-- `25 mm` is the original in-distribution reference;
-- `20, 15, 10, 5 mm` are progressively more demanding test-only cases;
-- `5 mm` is the stress-test case whose correlation length is smaller than the
-  `9 mm` specimen dimension;
-- the steep case is a continuous sigmoid transition rather than a discontinuous interface;
-- default evaluation uses clean displacement fields; optional noise levels may be supplied explicitly;
-- no retraining and no modification of `config_mix.py` are involved.
+- Generated GRF correlation lengths: `25, 20, 15, 10, 8, 5 mm`.
+- `25 mm` is the original reference distribution.
+- `20, 15, 10, 8 mm` form the main generalization test. In particular,
+  `8 mm` is shorter than the `9 mm` specimen dimension.
+- `5 mm` is an extreme boundary test and is stored under `supplementary/`; it
+  is intentionally excluded from the main summary table and curve.
+- A continuous steep sigmoid case is also evaluated in the complete metrics.
+- All GRF scales use paired latent samples and identical `E_max` ordering, so
+  the comparison isolates the correlation-length effect.
+- The default noise protocol is `0, 2, 4, 6, 8, 10%`, consistent with the
+  manuscript robustness experiment.
 
-The RBF covariance and `tanh` mapping reproduce `GRF_Generate.m`. The generated grid is deliberately `40 x 40` nodes (`39 x 39` elements), because that is the tensor size used by the selected models. The older MATLAB batch script currently uses `40 x 40` elements and therefore produces `41 x 41` nodes; it should not be used directly with these checkpoints.
-
-The five GRF conditions form a paired test: they use the same independently generated latent normal samples and the same `E_max` ordering, while only the covariance length changes. This isolates the correlation-length effect. The continuous steep-gradient cases use a separate seed.
+The RBF covariance and `tanh` mapping reproduce `GRF_Generate.m`. The grid is
+`40 x 40` nodes (`39 x 39` elements), which matches the selected U-Net tensor
+size. The older MATLAB batch script produces `41 x 41` nodes and should not be
+used directly with these checkpoints.
 
 ## Code organization
 
-The workflow follows the same organization as `asm_unet_compare`:
+The three run scripts only load the configuration and call package functions;
+they do not define or invoke a `main()` function:
 
 ```text
 grf_generalization/
-├── config.py
-├── run_generate_cases.py
-├── run_compare_cases.py
-└── pipeline/
-    ├── common.py
-    ├── data_generation.py
-    ├── evaluation.py
-    └── visualization.py
+|-- config.py
+|-- run_generate_cases.py
+|-- run_preview_samples.py
+|-- run_compare_cases.py
+`-- pipeline/
+    |-- common.py
+    |-- data_generation.py
+    |-- evaluation.py
+    `-- visualization.py
 ```
 
-The three run scripts contain only editable case/config output and direct calls to pipeline functions. They do not define or invoke a `main()` function. Data generation, sample preview, inference, statistics, and plotting are implemented in the package. The additional preview runner is `grf_generalization/run_preview_samples.py`.
+When running from this Git worktree while ignored model assets remain in the
+primary checkout, set `FE_GIN_ASSET_ROOT` to the primary checkout before model
+evaluation.
 
-When running from a Git worktree while ignored model assets remain in the primary checkout, set `FE_GIN_ASSET_ROOT` to that checkout before running the comparison. A normal checkout needs no override.
-
-## 1. Generate independent test cases
-
-From the repository root:
+## 1. Generate the independent test set
 
 ```bash
 python grf_generalization/run_generate_cases.py
 ```
 
-For a quick smoke test, temporarily change `sample_count` and `steep_sample_count` in `grf_generalization/config.py` to `1`.
+The test-only dataset and manifest are written under
+`data/generalization_test_sets/force_load/`.
 
-The dataset is written below `data/generalization_test_sets/force_load/`. Its manifest explicitly marks every condition as test-only and records the mesh, seeds, correlation lengths, forward-problem parameters, sample metadata, and file hashes.
-
-## 2. Preview and select a representative sample
+## 2. Preview and select samples
 
 ```bash
 python grf_generalization/run_preview_samples.py
 ```
 
-The preview runner writes a compact catalog for each condition in
-`sample_catalog_conditions` (default: `grf_l20`, `grf_l15`, `grf_l10`,
-`grf_l5`) and one four-panel true-modulus figure per candidate index. The panels use the style of
-`asm_unet_compare/plot_true_modulus.py`.
-Each sample panel in a catalog uses its own colorbar so that its internal spatial
-gradient can be inspected without compression by samples having a larger modulus range.
+The main catalogs are saved as:
 
-After selecting an index from each catalog, set the corresponding `sample_index`
-for the four entries in `grf_generalization/config.py`. The four indices may be
-selected independently. Using the same index is optional and preserves the paired
-latent draw when a direct cross-length visual comparison is desired.
+```text
+results/grf_ood/sample_previews/
+    true_modulus_sample_catalog_grf_l{20,15,10,8}.(png|pdf)
+    scale_fields/true_modulus_grf_sample_<index>.(png|pdf)
+```
 
-Preview files are saved under `results/grf_ood/sample_previews/`:
+The `l=5 mm` catalog is separated as:
 
-- `true_modulus_sample_catalog_grf_l{20,15,10,5}.(png|pdf)` shows every candidate
-  index for each test scale;
-- `scale_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the four
-  test scales for one index.
+```text
+results/grf_ood/supplementary/sample_previews/
+    true_modulus_sample_catalog_grf_l5.(png|pdf)
+```
 
-## 3. Evaluate the unchanged final models
+Every sample panel has its own colorbar. After inspecting the catalogs, edit
+the corresponding `sample_index` values in `grf_generalization/config.py`.
+The indices may be selected independently; using the same index preserves the
+paired latent sample for a direct cross-scale comparison.
+
+## 3. Evaluate the unchanged models
 
 ```bash
 python grf_generalization/run_compare_cases.py
 ```
 
-The default final-model directory is:
-
-```text
-trained_models_mix/force_load/final_model/
-```
-
-The default comparison uses deterministic `0, 2, 4, 6, 8, 10%` noise, matching the manuscript robustness table. These levels, preview indices, representative cases, models, device, and output paths are edited in `grf_generalization/config.py`.
-
-Results are saved under:
+The default checkpoints are loaded from
+`trained_models_mix/force_load/final_model/`. Outputs are organized as:
 
 ```text
 results/grf_ood/
-├── manifests/
-├── metrics/per_sample_all.csv
-├── metrics/ood_summary.csv
-├── metrics/grf_noise_statistics_table.csv
-├── figures/grf_correlation_length.(png|pdf)
-├── figures/grf_noise_statistics_table.(png|pdf)
-└── cases/grf_l{20,15,10,5}/sample_<index>/
-    ├── prediction_*.png
-    └── error_*.png
+|-- manifests/
+|-- metrics/
+|   |-- per_sample_all.csv
+|   |-- ood_summary.csv
+|   `-- grf_noise_statistics_table.csv
+|-- figures/
+|   |-- grf_correlation_length.(png|pdf)
+|   `-- grf_noise_statistics_table.(png|pdf)
+|-- cases/grf_l{20,15,10,8}/sample_<index>/
+`-- supplementary/
+    |-- metrics/grf_l5_stress_summary.csv
+    `-- cases/grf_l5/sample_<index>/
 ```
 
-`ood_summary.csv` reports relative L1, MAE and RMSE. The column `relative_l1_ratio_to_l25` is the error ratio relative to the `l=25 mm` reference under the same model and noise level. Values above one indicate degradation relative to the original GRF condition.
-
-`grf_noise_statistics_table.csv` follows the manuscript table layout: rows are grouped by noise level and model, while columns are grouped by `GRF l=25/20/15/10 mm`, each with relative-L1 `mean` and `std`. The PNG/PDF version reproduces the same grouped presentation for direct use when preparing the response or manuscript.
+`ood_summary.csv` remains the complete audit table and includes every generated
+condition, including `l=5 mm` and the steep-gradient field. The manuscript-style
+table and correlation-length curve contain only `l=25, 20, 15, 10, 8 mm`.
 
 ## Interpretation boundary
 
-The shorter correlation lengths are boundary tests within the paper's intended class of smooth continuously graded fields. The experiment does not claim applicability to arbitrary high-frequency random media or discontinuous interfaces. A degradation at `l=10 mm` should be reported as the boundary of the current training distribution, not concealed by retraining.
+The main experiment examines shorter correlation lengths within the intended
+class of smooth continuous modulus fields. The `l=5 mm` result is retained as
+an explicit supplementary stress test to show where the unchanged model begins
+to fail; it should be described as a limitation rather than as evidence of
+generalization to arbitrary high-frequency media or discontinuous interfaces.

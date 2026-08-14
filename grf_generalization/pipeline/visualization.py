@@ -295,7 +295,8 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
     """Save prediction/error matrices using asm_unet_compare's visual grammar."""
     condition_id = case['condition']
     sample_index = int(case['sample_index'])
-    case_dir = Path(output_dir) / 'cases' / condition_id / f'sample_{sample_index}'
+    output_group = Path(case.get('output_group', 'cases'))
+    case_dir = Path(output_dir) / output_group / condition_id / f'sample_{sample_index}'
     case_dir.mkdir(parents=True, exist_ok=True)
     methods = [method for method in METHOD_ORDER if method in panel_data]
 
@@ -402,7 +403,7 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
                 capsize=2.5,
             )
         axis.set_title(f'Noise level {noise_level:g}%', fontsize=16, fontweight='normal')
-        axis.set_xticks([5, 10, 15, 20, 25])
+        axis.set_xticks([8, 10, 15, 20, 25])
         axis.tick_params(direction='in', labelsize=10, width=0.8)
     for axis in axes[-1]:
         axis.set_xlabel('GRF correlation length, $l$ (mm)')

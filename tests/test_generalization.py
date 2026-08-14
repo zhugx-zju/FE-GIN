@@ -23,7 +23,7 @@ from grf_generalization.pipeline.generators import (
 )
 from grf_generalization.pipeline.metrics import apply_relative_noise, field_metrics
 from grf_generalization.config import get_config
-from grf_generalization.pipeline.evaluation import _build_case_panels
+from grf_generalization.pipeline.evaluation import _build_case_panels, _validate_cases
 from grf_generalization.pipeline import visualization
 from grf_generalization.pipeline.sample_preview import (
     _draw_true_field,
@@ -76,17 +76,38 @@ class GeneralizationTests(unittest.TestCase):
             self.assertNotIn("if __name__ == '__main__'", source)
             self.assertNotIn('if __name__ == "__main__"', source)
 
-    def test_config_contains_four_additional_grf_cases(self):
+    def test_config_separates_main_and_stress_grf_cases(self):
         cfg = get_config(PROJECT_ROOT)
         configured = [case['condition'] for case in cfg['cases']]
-        self.assertEqual(configured, ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'])
-        self.assertEqual(cfg['correlation_lengths_mm'], [25.0, 20.0, 15.0, 10.0, 5.0])
+        self.assertEqual(configured, ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l8'])
+        self.assertEqual(
+            [case['condition'] for case in cfg['supplementary_cases']],
+            ['grf_l5'],
+        )
+        self.assertEqual(
+            cfg['correlation_lengths_mm'],
+            [25.0, 20.0, 15.0, 10.0, 8.0, 5.0],
+        )
         self.assertEqual(cfg['noise_levels'], [0, 2, 4, 6, 8, 10])
         self.assertEqual(cfg['output_dir'], PROJECT_ROOT / 'results' / 'grf_ood')
         self.assertEqual(cfg['sample_preview_indices'], list(range(20)))
         self.assertEqual(
             cfg['sample_catalog_conditions'],
-            ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'],
+            ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l8'],
+        )
+        self.assertEqual(cfg['stress_preview_conditions'], ['grf_l5'])
+
+    def test_case_outputs_are_routed_to_main_and_supplementary_directories(self):
+        cfg = get_config(PROJECT_ROOT)
+        conditions = [
+            {'condition_id': condition_id}
+            for condition_id in ('grf_l20', 'grf_l15', 'grf_l10', 'grf_l8', 'grf_l5')
+        ]
+        main_cases, supplementary_cases = _validate_cases(cfg, conditions)
+        self.assertTrue(all(case['output_group'] == 'cases' for case in main_cases))
+        self.assertEqual(
+            supplementary_cases[0]['output_group'],
+            str(Path('supplementary') / 'cases'),
         )
 
     def test_preview_indices_are_explicitly_validated(self):
@@ -111,6 +132,7 @@ class GeneralizationTests(unittest.TestCase):
         smooth, _ = generate_grf_fields(mesh, 25.0, 12, seed=123)
         smooth_repeat, _ = generate_grf_fields(mesh, 25.0, 12, seed=123)
         shorter, _ = generate_grf_fields(mesh, 10.0, 12, seed=123)
+        below_specimen, _ = generate_grf_fields(mesh, 8.0, 12, seed=123)
         stress, _ = generate_grf_fields(mesh, 5.0, 12, seed=123)
 
         self.assertTrue(np.array_equal(smooth, smooth_repeat))
@@ -128,7 +150,8 @@ class GeneralizationTests(unittest.TestCase):
             )
 
         self.assertGreater(adjacent_change(shorter), adjacent_change(smooth))
-        self.assertGreater(adjacent_change(stress), adjacent_change(shorter))
+        self.assertGreater(adjacent_change(below_specimen), adjacent_change(shorter))
+        self.assertGreater(adjacent_change(stress), adjacent_change(below_specimen))
 
     def test_steep_fields_remain_continuous_and_bounded(self):
         mesh = MeshInfo(9.0, 9.0, 19, 19)
@@ -192,7 +215,7 @@ class GeneralizationTests(unittest.TestCase):
         for noise in (0.0, 2.0):
             for model_index, model in enumerate(('MSE-M', 'LM-M', 'GM-M')):
                 for condition_index, condition in enumerate(
-                    ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5')
+                    ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l8', 'grf_l5')
                 ):
                     for sample_id in range(3):
                         per_sample.append(
@@ -214,9 +237,10 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(len(table), 6)
         self.assertEqual([row['model'] for row in table[:3]], ['MSE-M', 'LM-M', 'GM-M'])
         for row in table:
-            for condition in ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'):
+            for condition in ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l8'):
                 self.assertIn(f'{condition}_mean', row)
                 self.assertIn(f'{condition}_std', row)
+            self.assertNotIn('grf_l5_mean', row)
 
 
 if __name__ == "__main__":

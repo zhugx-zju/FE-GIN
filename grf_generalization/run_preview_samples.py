@@ -18,10 +18,13 @@ print('Preview GRF Ground-Truth Samples for Manual Case Selection')
 print('=' * 80)
 print(f"Sample indices: {cfg['sample_preview_indices']}")
 print(f"Catalog conditions: {cfg['sample_catalog_conditions']}")
+print(f"Supplementary stress conditions: {cfg['stress_preview_conditions']}")
 print(f"Output directory: {cfg['output_dir'] / 'sample_previews'}")
 
 outputs = generate_sample_previews(cfg)
 
 for condition_id, paths in outputs['catalogs'].items():
     print(f'Saved {condition_id} sample catalog: {paths[0]}')
+for condition_id, paths in outputs['stress_catalogs'].items():
+    print(f'Saved supplementary {condition_id} sample catalog: {paths[0]}')
 print(f"Saved selected-scale sample figures: {len(outputs['scale_samples'])}")

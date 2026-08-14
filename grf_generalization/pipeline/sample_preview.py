@@ -11,7 +11,8 @@ from scipy.io import loadmat
 from .visualization import _add_panel_labels, _style_field_colorbar
 
 
-DEFAULT_PREVIEW_CONDITIONS = ('grf_l20', 'grf_l15', 'grf_l10', 'grf_l5')
+DEFAULT_PREVIEW_CONDITIONS = ('grf_l20', 'grf_l15', 'grf_l10', 'grf_l8')
+DEFAULT_STRESS_CONDITIONS = ('grf_l5',)
 
 
 def resolve_preview_indices(requested_indices, sample_count):
@@ -123,8 +124,15 @@ def _plot_scale_sample(output_dir, targets, condition_ids, sample_index, dpi):
     return paths
 
 
-def _plot_sample_catalog(output_dir, fields, condition_id, sample_indices, dpi):
-    preview_dir = Path(output_dir) / 'sample_previews'
+def _plot_sample_catalog(
+    output_dir,
+    fields,
+    condition_id,
+    sample_indices,
+    dpi,
+    relative_preview_dir='sample_previews',
+):
+    preview_dir = Path(output_dir) / relative_preview_dir
     preview_dir.mkdir(parents=True, exist_ok=True)
     column_count = min(5, len(sample_indices))
     row_count = int(ceil(len(sample_indices) / column_count))
@@ -180,7 +188,12 @@ def generate_sample_previews(cfg):
     )
     if not condition_ids:
         raise ValueError('sample_catalog_conditions must not be empty.')
-    targets = _load_grf_targets(cfg['data_dir'], condition_ids)
+    stress_condition_ids = tuple(
+        str(value)
+        for value in cfg.get('stress_preview_conditions', DEFAULT_STRESS_CONDITIONS)
+    )
+    all_condition_ids = tuple(dict.fromkeys(condition_ids + stress_condition_ids))
+    targets = _load_grf_targets(cfg['data_dir'], all_condition_ids)
     sample_count = next(iter(targets.values())).shape[0]
     sample_indices = resolve_preview_indices(
         cfg.get('sample_preview_indices', range(sample_count)),
@@ -206,7 +219,19 @@ def generate_sample_previews(cfg):
         )
         for sample_index in sample_indices
     }
+    stress_catalog_paths = {
+        condition_id: _plot_sample_catalog(
+            cfg['output_dir'],
+            targets[condition_id],
+            condition_id,
+            sample_indices,
+            int(cfg.get('dpi', 600)),
+            relative_preview_dir=Path('supplementary') / 'sample_previews',
+        )
+        for condition_id in stress_condition_ids
+    }
     return {
         'catalogs': catalog_paths,
         'scale_samples': scale_paths,
+        'stress_catalogs': stress_catalog_paths,
     }

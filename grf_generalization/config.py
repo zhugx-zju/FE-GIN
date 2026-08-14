@@ -21,7 +21,7 @@ def get_config(project_root=None, asset_root=None):
         'nodes_y': 40,
         'sample_count': sample_count,
         'seed': 8606,
-        'correlation_lengths_mm': [25.0, 20.0, 15.0, 10.0, 5.0],
+        'correlation_lengths_mm': [25.0, 20.0, 15.0, 10.0, 8.0, 5.0],
         'include_steep_gradient': True,
         'steep_sample_count': 20,
         'steep_transition_width_mm': 0.75,
@@ -30,9 +30,10 @@ def get_config(project_root=None, asset_root=None):
         'batch_size': 16,
         'device': 'cpu',
         'dpi': 600,
-        # Preview the three additional test scales before choosing cases.
+        # Main-text preview conditions; l=5 mm is kept as a stress test.
         'sample_preview_indices': list(range(sample_count)),
-        'sample_catalog_conditions': ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'],
+        'sample_catalog_conditions': ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l8'],
+        'stress_preview_conditions': ['grf_l5'],
         # Selected final checkpoints. Keys are folder names; values are labels.
         'models': {
             'MSE_UNet_GN_arch_32-64-128': 'MSE-M',
@@ -40,12 +41,16 @@ def get_config(project_root=None, asset_root=None):
             'GloMix_UNet_GN_arch_32-64-128_gamma_10000': 'GM-M',
         },
         # Representative cases follow the asm_unet_compare manual-case pattern.
-        # l=20/15/10/5 mm are the additional reviewer-response cases.
+        # l=20/15/10/8 mm are the main reviewer-response cases.
         # Each condition can use an independently selected sample index.
         'cases': [
             {'condition': 'grf_l20', 'sample_index': 0},
             {'condition': 'grf_l15', 'sample_index': 0},
             {'condition': 'grf_l10', 'sample_index': 0},
+            {'condition': 'grf_l8', 'sample_index': 0},
+        ],
+        # Extreme l=5 mm case is retained as a supplementary boundary test.
+        'supplementary_cases': [
             {'condition': 'grf_l5', 'sample_index': 0},
         ],
     }
