@@ -70,7 +70,7 @@ def _validate_cases(cfg, conditions):
             raise KeyError(f'Configured case condition is absent from manifest: {condition_id}')
         sample_index = int(raw_case.get('sample_index', 0))
         cases.append({'condition': condition_id, 'sample_index': sample_index})
-    required = {'grf_l20', 'grf_l15', 'grf_l10'}
+    required = {'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'}
     configured = {case['condition'] for case in cases}
     missing = sorted(required - configured)
     if missing:

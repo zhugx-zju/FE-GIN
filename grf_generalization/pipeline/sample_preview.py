@@ -11,7 +11,7 @@ from scipy.io import loadmat
 from .visualization import _add_panel_labels, _style_field_colorbar
 
 
-DEFAULT_PREVIEW_CONDITIONS = ('grf_l20', 'grf_l15', 'grf_l10')
+DEFAULT_PREVIEW_CONDITIONS = ('grf_l20', 'grf_l15', 'grf_l10', 'grf_l5')
 
 
 def resolve_preview_indices(requested_indices, sample_count):
@@ -71,8 +71,10 @@ def _condition_title(condition_id):
 def _draw_true_field(axis, values, vmin, vmax):
     y = np.linspace(0.0, 9.0, values.shape[0])
     x = np.linspace(0.0, 9.0, values.shape[1])
-    image = axis.contourf(x, y, values, levels=128, cmap='viridis')
-    image.set_clim(vmin, vmax)
+    if np.isclose(vmin, vmax):
+        vmax = vmin + np.finfo(float).eps
+    levels = np.linspace(vmin, vmax, 129)
+    image = axis.contourf(x, y, values, levels=levels, cmap='viridis')
     axis.set_aspect('equal')
     axis.axis('off')
     return image

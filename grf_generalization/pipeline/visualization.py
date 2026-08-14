@@ -149,7 +149,8 @@ def plot_paper_table(path_png, path_pdf, summaries, dpi=600):
         cell_text.append(values)
 
     figure_height = 1.55 + 0.34 * len(rows)
-    figure, axis = plt.subplots(figsize=(12.5, figure_height))
+    figure_width = 4.5 + 2.25 * len(GRF_CONDITION_ORDER)
+    figure, axis = plt.subplots(figsize=(figure_width, figure_height))
     axis.axis('off')
     table = axis.table(
         cellText=cell_text,
@@ -157,7 +158,7 @@ def plot_paper_table(path_png, path_pdf, summaries, dpi=600):
         cellLoc='center',
         colLoc='center',
         loc='center',
-        colWidths=[0.11, 0.10] + [0.095] * 8,
+        colWidths=[0.10, 0.09] + [0.078] * (2 * len(GRF_CONDITION_ORDER)),
     )
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
@@ -401,7 +402,7 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
                 capsize=2.5,
             )
         axis.set_title(f'Noise level {noise_level:g}%', fontsize=16, fontweight='normal')
-        axis.set_xticks([10, 15, 20, 25])
+        axis.set_xticks([5, 10, 15, 20, 25])
         axis.tick_params(direction='in', labelsize=10, width=0.8)
     for axis in axes[-1]:
         axis.set_xlabel('GRF correlation length, $l$ (mm)')

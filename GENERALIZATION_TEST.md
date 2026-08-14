@@ -4,16 +4,18 @@ This workflow performs a small, test-only experiment for Reviewer 8, Comment 6. 
 
 ## Scope
 
-- GRF correlation lengths: `25, 20, 15, 10 mm`;
+- GRF correlation lengths: `25, 20, 15, 10, 5 mm`;
 - `25 mm` is the original in-distribution reference;
-- `20, 15, 10 mm` are progressively more demanding test-only cases;
+- `20, 15, 10, 5 mm` are progressively more demanding test-only cases;
+- `5 mm` is the stress-test case whose correlation length is smaller than the
+  `9 mm` specimen dimension;
 - the steep case is a continuous sigmoid transition rather than a discontinuous interface;
 - default evaluation uses clean displacement fields; optional noise levels may be supplied explicitly;
 - no retraining and no modification of `config_mix.py` are involved.
 
 The RBF covariance and `tanh` mapping reproduce `GRF_Generate.m`. The generated grid is deliberately `40 x 40` nodes (`39 x 39` elements), because that is the tensor size used by the selected models. The older MATLAB batch script currently uses `40 x 40` elements and therefore produces `41 x 41` nodes; it should not be used directly with these checkpoints.
 
-The four GRF conditions form a paired test: they use the same independently generated latent normal samples and the same `E_max` ordering, while only the covariance length changes. This isolates the correlation-length effect. The continuous steep-gradient cases use a separate seed.
+The five GRF conditions form a paired test: they use the same independently generated latent normal samples and the same `E_max` ordering, while only the covariance length changes. This isolates the correlation-length effect. The continuous steep-gradient cases use a separate seed.
 
 ## Code organization
 
@@ -54,20 +56,20 @@ python grf_generalization/run_preview_samples.py
 ```
 
 The preview runner writes a compact catalog for each condition in
-`sample_catalog_conditions` (default: `grf_l20`, `grf_l15`, `grf_l10`) and one
-three-panel true-modulus figure per candidate index. The panels use the style of
+`sample_catalog_conditions` (default: `grf_l20`, `grf_l15`, `grf_l10`,
+`grf_l5`) and one four-panel true-modulus figure per candidate index. The panels use the style of
 `asm_unet_compare/plot_true_modulus.py`.
 
 After selecting an index from each catalog, set the corresponding `sample_index`
-for the three entries in `grf_generalization/config.py`. The three indices may be
+for the four entries in `grf_generalization/config.py`. The four indices may be
 selected independently. Using the same index is optional and preserves the paired
 latent draw when a direct cross-length visual comparison is desired.
 
 Preview files are saved under `results/grf_ood/sample_previews/`:
 
-- `true_modulus_sample_catalog_grf_l{20,15,10}.(png|pdf)` shows every candidate
+- `true_modulus_sample_catalog_grf_l{20,15,10,5}.(png|pdf)` shows every candidate
   index for each test scale;
-- `scale_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the three
+- `scale_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the four
   test scales for one index.
 
 ## 3. Evaluate the unchanged final models
@@ -94,7 +96,7 @@ results/grf_ood/
 ├── metrics/grf_noise_statistics_table.csv
 ├── figures/grf_correlation_length.(png|pdf)
 ├── figures/grf_noise_statistics_table.(png|pdf)
-└── cases/grf_l{20,15,10}/sample_<index>/
+└── cases/grf_l{20,15,10,5}/sample_<index>/
     ├── prediction_*.png
     └── error_*.png
 ```

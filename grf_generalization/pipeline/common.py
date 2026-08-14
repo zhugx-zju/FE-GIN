@@ -24,12 +24,13 @@ from .metrics import apply_relative_noise, field_metrics
 METHOD_ORDER = ('MSE-M', 'LM-M', 'GM-M')
 METHOD_COLORS = {'MSE-M': '#d62728', 'LM-M': '#9467bd', 'GM-M': '#ff7f0e'}
 METHOD_MARKERS = {'MSE-M': 'o', 'LM-M': 's', 'GM-M': '^'}
-GRF_CONDITION_ORDER = ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10')
+GRF_CONDITION_ORDER = ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5')
 CONDITION_DISPLAY = {
     'grf_l25': 'GRF-$l=25$ mm',
     'grf_l20': 'GRF-$l=20$ mm',
     'grf_l15': 'GRF-$l=15$ mm',
     'grf_l10': 'GRF-$l=10$ mm',
+    'grf_l5': 'GRF-$l=5$ mm',
     'steep_sigmoid': 'Continuous steep gradient',
 }
 

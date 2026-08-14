@@ -25,7 +25,10 @@ from grf_generalization.pipeline.metrics import apply_relative_noise, field_metr
 from grf_generalization.config import get_config
 from grf_generalization.pipeline.evaluation import _build_case_panels
 from grf_generalization.pipeline import visualization
-from grf_generalization.pipeline.sample_preview import resolve_preview_indices
+from grf_generalization.pipeline.sample_preview import (
+    _draw_true_field,
+    resolve_preview_indices,
+)
 from grf_generalization.pipeline.visualization import build_paper_table, summarize_metrics
 
 
@@ -73,16 +76,17 @@ class GeneralizationTests(unittest.TestCase):
             self.assertNotIn("if __name__ == '__main__'", source)
             self.assertNotIn('if __name__ == "__main__"', source)
 
-    def test_config_contains_three_additional_grf_cases(self):
+    def test_config_contains_four_additional_grf_cases(self):
         cfg = get_config(PROJECT_ROOT)
         configured = [case['condition'] for case in cfg['cases']]
-        self.assertEqual(configured, ['grf_l20', 'grf_l15', 'grf_l10'])
+        self.assertEqual(configured, ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'])
+        self.assertEqual(cfg['correlation_lengths_mm'], [25.0, 20.0, 15.0, 10.0, 5.0])
         self.assertEqual(cfg['noise_levels'], [0, 2, 4, 6, 8, 10])
         self.assertEqual(cfg['output_dir'], PROJECT_ROOT / 'results' / 'grf_ood')
         self.assertEqual(cfg['sample_preview_indices'], list(range(20)))
         self.assertEqual(
             cfg['sample_catalog_conditions'],
-            ['grf_l20', 'grf_l15', 'grf_l10'],
+            ['grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'],
         )
 
     def test_preview_indices_are_explicitly_validated(self):
@@ -90,11 +94,24 @@ class GeneralizationTests(unittest.TestCase):
         with self.assertRaisesRegex(IndexError, 'outside the available range'):
             resolve_preview_indices([3], 3)
 
+    def test_preview_contours_use_the_requested_shared_color_range(self):
+        figure, axis = plt.subplots()
+        image = _draw_true_field(
+            axis,
+            np.asarray([[1.0, 2.0], [3.0, 4.0]]),
+            vmin=0.0,
+            vmax=10.0,
+        )
+        self.assertAlmostEqual(float(image.levels[0]), 0.0)
+        self.assertAlmostEqual(float(image.levels[-1]), 10.0)
+        plt.close(figure)
+
     def test_grf_is_reproducible_and_shorter_length_is_rougher(self):
         mesh = MeshInfo(9.0, 9.0, 11, 11)
         smooth, _ = generate_grf_fields(mesh, 25.0, 12, seed=123)
         smooth_repeat, _ = generate_grf_fields(mesh, 25.0, 12, seed=123)
         shorter, _ = generate_grf_fields(mesh, 10.0, 12, seed=123)
+        stress, _ = generate_grf_fields(mesh, 5.0, 12, seed=123)
 
         self.assertTrue(np.array_equal(smooth, smooth_repeat))
 
@@ -111,6 +128,7 @@ class GeneralizationTests(unittest.TestCase):
             )
 
         self.assertGreater(adjacent_change(shorter), adjacent_change(smooth))
+        self.assertGreater(adjacent_change(stress), adjacent_change(shorter))
 
     def test_steep_fields_remain_continuous_and_bounded(self):
         mesh = MeshInfo(9.0, 9.0, 19, 19)
@@ -169,12 +187,12 @@ class GeneralizationTests(unittest.TestCase):
                 self.assertEqual(inputs.shape, (1, 2, 6, 6))
                 self.assertEqual(outputs.shape, (1, 6, 6))
 
-    def test_paper_table_has_noise_model_rows_and_four_grf_groups(self):
+    def test_paper_table_has_noise_model_rows_and_five_grf_groups(self):
         per_sample = []
         for noise in (0.0, 2.0):
             for model_index, model in enumerate(('MSE-M', 'LM-M', 'GM-M')):
                 for condition_index, condition in enumerate(
-                    ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10')
+                    ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5')
                 ):
                     for sample_id in range(3):
                         per_sample.append(
@@ -196,7 +214,7 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(len(table), 6)
         self.assertEqual([row['model'] for row in table[:3]], ['MSE-M', 'LM-M', 'GM-M'])
         for row in table:
-            for condition in ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10'):
+            for condition in ('grf_l25', 'grf_l20', 'grf_l15', 'grf_l10', 'grf_l5'):
                 self.assertIn(f'{condition}_mean', row)
                 self.assertIn(f'{condition}_std', row)
 
