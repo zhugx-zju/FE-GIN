@@ -7,6 +7,7 @@ def get_config(project_root=None, asset_root=None):
     asset_root = Path(
         asset_root or os.environ.get('FE_GIN_ASSET_ROOT', project_root)
     ).resolve()
+    sample_count = 20
     return {
         # Test-only generated data and analysis outputs.
         'data_dir': project_root / 'data' / 'generalization_test_sets' / 'force_load',
@@ -18,7 +19,7 @@ def get_config(project_root=None, asset_root=None):
         # Match the selected U-Net input/output grid: 40 x 40 nodes.
         'nodes_x': 40,
         'nodes_y': 40,
-        'sample_count': 20,
+        'sample_count': sample_count,
         'seed': 8606,
         'correlation_lengths_mm': [25.0, 20.0, 15.0, 10.0],
         'include_steep_gradient': True,
@@ -29,6 +30,9 @@ def get_config(project_root=None, asset_root=None):
         'batch_size': 16,
         'device': 'cpu',
         'dpi': 600,
+        # Preview all paired GRF samples before choosing a representative case.
+        'sample_preview_indices': list(range(sample_count)),
+        'sample_catalog_condition': 'grf_l10',
         # Selected final checkpoints. Keys are folder names; values are labels.
         'models': {
             'MSE_UNet_GN_arch_32-64-128': 'MSE-M',

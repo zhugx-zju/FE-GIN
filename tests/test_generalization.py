@@ -25,6 +25,7 @@ from grf_generalization.pipeline.metrics import apply_relative_noise, field_metr
 from grf_generalization.config import get_config
 from grf_generalization.pipeline.evaluation import _build_case_panels
 from grf_generalization.pipeline import visualization
+from grf_generalization.pipeline.sample_preview import resolve_preview_indices
 from grf_generalization.pipeline.visualization import build_paper_table, summarize_metrics
 
 
@@ -62,7 +63,11 @@ class GeneralizationTests(unittest.TestCase):
         self.assertTrue(np.allclose(result['relative_error_percent'], expected))
 
     def test_runner_scripts_do_not_define_main(self):
-        for runner in ('run_generate_cases.py', 'run_compare_cases.py'):
+        for runner in (
+            'run_generate_cases.py',
+            'run_preview_samples.py',
+            'run_compare_cases.py',
+        ):
             source = (PROJECT_ROOT / 'grf_generalization' / runner).read_text(encoding='utf-8')
             self.assertNotIn('def main(', source)
             self.assertNotIn("if __name__ == '__main__'", source)
@@ -74,6 +79,13 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(configured, ['grf_l25', 'grf_l20', 'grf_l15', 'grf_l10'])
         self.assertEqual(cfg['noise_levels'], [0, 2, 4, 6, 8, 10])
         self.assertEqual(cfg['output_dir'], PROJECT_ROOT / 'results' / 'grf_ood')
+        self.assertEqual(cfg['sample_preview_indices'], list(range(20)))
+        self.assertEqual(cfg['sample_catalog_condition'], 'grf_l10')
+
+    def test_preview_indices_are_explicitly_validated(self):
+        self.assertEqual(resolve_preview_indices([2, 0, 2], 3), [2, 0])
+        with self.assertRaisesRegex(IndexError, 'outside the available range'):
+            resolve_preview_indices([3], 3)
 
     def test_grf_is_reproducible_and_shorter_length_is_rougher(self):
         mesh = MeshInfo(9.0, 9.0, 11, 11)

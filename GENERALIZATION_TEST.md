@@ -31,7 +31,7 @@ grf_generalization/
     └── visualization.py
 ```
 
-The two run scripts contain only editable case/config output and direct calls to pipeline functions. They do not define or invoke a `main()` function. Data generation, inference, statistics, and plotting are implemented in the package.
+The three run scripts contain only editable case/config output and direct calls to pipeline functions. They do not define or invoke a `main()` function. Data generation, sample preview, inference, statistics, and plotting are implemented in the package. The additional preview runner is `grf_generalization/run_preview_samples.py`.
 
 When running from a Git worktree while ignored model assets remain in the primary checkout, set `FE_GIN_ASSET_ROOT` to that checkout before running the comparison. A normal checkout needs no override.
 
@@ -47,7 +47,28 @@ For a quick smoke test, temporarily change `sample_count` and `steep_sample_coun
 
 The dataset is written below `data/generalization_test_sets/force_load/`. Its manifest explicitly marks every condition as test-only and records the mesh, seeds, correlation lengths, forward-problem parameters, sample metadata, and file hashes.
 
-## 2. Evaluate the unchanged final models
+## 2. Preview and select a representative sample
+
+```bash
+python grf_generalization/run_preview_samples.py
+```
+
+The preview runner writes a compact catalog for `sample_catalog_condition`
+(default: `grf_l10`) and one four-panel true-modulus figure per candidate index.
+The four panels show the paired `l=25, 20, 15, 10 mm` fields using the style of
+`asm_unet_compare/plot_true_modulus.py`.
+
+After selecting an index, set the same `sample_index` for all four entries in
+`grf_generalization/config.py`. The same index must be used because the four GRF
+conditions are paired.
+
+Preview files are saved under `results/grf_ood/sample_previews/`:
+
+- `true_modulus_sample_catalog_grf_l10.(png|pdf)` shows every candidate index;
+- `paired_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the four
+  paired correlation lengths for one index.
+
+## 3. Evaluate the unchanged final models
 
 ```bash
 python grf_generalization/run_compare_cases.py
@@ -59,7 +80,7 @@ The default final-model directory is:
 trained_models_mix/force_load/final_model/
 ```
 
-The default comparison uses deterministic `0, 2, 4, 6, 8, 10%` noise, matching the manuscript robustness table. These levels, representative cases, models, device, and output paths are edited in `grf_generalization/config.py`.
+The default comparison uses deterministic `0, 2, 4, 6, 8, 10%` noise, matching the manuscript robustness table. These levels, preview indices, representative cases, models, device, and output paths are edited in `grf_generalization/config.py`.
 
 Results are saved under:
 
