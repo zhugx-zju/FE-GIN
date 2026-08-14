@@ -4,6 +4,7 @@ import csv
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,6 +15,20 @@ from .common import (
     METHOD_MARKERS,
     METHOD_ORDER,
 )
+
+
+# Keep every figure in this evaluation consistent with the manuscript plotting
+# utilities in igfe_unet/postprocess/common.py.
+matplotlib.rcParams['font.family'] = 'serif'
+matplotlib.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif']
+matplotlib.rcParams['mathtext.fontset'] = 'custom'
+matplotlib.rcParams['mathtext.rm'] = 'Times New Roman'
+matplotlib.rcParams['mathtext.it'] = 'Times New Roman:italic'
+matplotlib.rcParams['mathtext.bf'] = 'Times New Roman:bold'
+matplotlib.rcParams['font.size'] = 10
+matplotlib.rcParams['axes.linewidth'] = 0.8
+
+RELATIVE_ERROR_COLORBAR_MAX_PCT = 10.0
 
 
 def write_csv(path, fieldnames, rows):
@@ -214,26 +229,53 @@ def _draw_field(axis, values, cmap, vmin=None, vmax=None):
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,
-        interpolation='bilinear',
+        interpolation='nearest',
     )
     axis.set_aspect('equal')
     axis.set_xticks([])
     axis.set_yticks([])
+    for spine in axis.spines.values():
+        spine.set_visible(False)
     return image
 
 
-def _row_labels(figure, first_axes, noise_levels):
+def _row_label(row_index, noise_level):
+    return f"({chr(ord('a') + row_index)}) Noise {float(noise_level):g}%"
+
+
+def _add_row_labels(figure, first_axes, noise_levels, x_pad=0.014):
     for row_index, noise_level in enumerate(noise_levels):
         position = first_axes[row_index].get_position()
         figure.text(
-            position.x0 - 0.025,
+            position.x0 - x_pad,
             0.5 * (position.y0 + position.y1),
-            f'{float(noise_level):g}%',
-            rotation=90,
+            _row_label(row_index, noise_level),
             va='center',
-            ha='center',
+            ha='right',
             fontsize=10,
+            fontweight='bold',
         )
+
+
+def _add_panel_labels(axes, x=-0.16, y=1.08, fontsize=15):
+    for panel_index, axis in enumerate(np.asarray(axes).ravel()):
+        axis.text(
+            x,
+            y,
+            f"({chr(ord('a') + panel_index)})",
+            transform=axis.transAxes,
+            fontsize=fontsize,
+            fontweight='normal',
+            va='bottom',
+            ha='left',
+        )
+
+
+def _save_figure_pair(figure, png_path, dpi):
+    png_path = Path(png_path)
+    pdf_path = png_path.with_suffix('.pdf')
+    for path in (png_path, pdf_path):
+        figure.savefig(path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
 
 
 def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi=600):
@@ -244,25 +286,17 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
     case_dir.mkdir(parents=True, exist_ok=True)
     methods = [method for method in METHOD_ORDER if method in panel_data]
 
-    field_values = [target]
-    for method in methods:
-        field_values.extend(panel_data[method][float(noise)]['prediction'] for noise in noise_levels)
-    field_min = min(np.min(value) for value in field_values)
-    field_max = max(np.max(value) for value in field_values)
+    field_min = float(np.min(target))
+    field_max = float(np.max(target))
 
-    figure = plt.figure(figsize=(2.55 * (len(methods) + 1) + 0.6, 2.4 * len(noise_levels) + 0.7))
-    grid = figure.add_gridspec(len(noise_levels), len(methods) + 1, wspace=0.045, hspace=0.055)
+    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.45 * len(noise_levels) + 0.60))
+    grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.055)
     first_axes = {}
     image = None
     for row_index, noise_level in enumerate(noise_levels):
-        truth_axis = figure.add_subplot(grid[row_index, 0])
-        image = _draw_field(truth_axis, target, 'viridis', field_min, field_max)
-        first_axes[row_index] = truth_axis
-        if row_index == 0:
-            truth_axis.set_title('Ground truth', fontsize=11, fontweight='bold')
-        for column_index, method in enumerate(methods, start=1):
+        for column_index, method in enumerate(methods):
             axis = figure.add_subplot(grid[row_index, column_index])
-            _draw_field(
+            image = _draw_field(
                 axis,
                 panel_data[method][float(noise_level)]['prediction'],
                 'viridis',
@@ -270,23 +304,20 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
                 field_max,
             )
             if row_index == 0:
-                axis.set_title(method, fontsize=11, fontweight='bold')
-    figure.subplots_adjust(left=0.10, right=0.90, bottom=0.03, top=0.94)
-    _row_labels(figure, first_axes, noise_levels)
-    color_axis = figure.add_axes([0.92, 0.14, 0.016, 0.74])
+                axis.set_title(method, fontsize=11, fontweight='bold', pad=7)
+            if column_index == 0:
+                first_axes[row_index] = axis
+    figure.subplots_adjust(left=0.115, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.055)
+    _add_row_labels(figure, first_axes, noise_levels)
+    color_axis = figure.add_axes([0.915, 0.14, 0.016, 0.74])
     colorbar = figure.colorbar(image, cax=color_axis)
     colorbar.set_label('Modulus (MPa)', fontsize=10, fontweight='bold')
+    colorbar.ax.tick_params(labelsize=9)
     prediction_path = case_dir / f'prediction_{condition_id}_sample_{sample_index}.png'
-    figure.savefig(prediction_path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+    _save_figure_pair(figure, prediction_path, dpi)
     plt.close(figure)
 
-    all_errors = [
-        panel_data[method][float(noise)]['absolute_error']
-        for method in methods
-        for noise in noise_levels
-    ]
-    error_max = max(float(np.percentile(error, 99.0)) for error in all_errors)
-    figure = plt.figure(figsize=(2.55 * len(methods) + 0.6, 2.4 * len(noise_levels) + 0.7))
+    figure = plt.figure(figsize=(2.55 * len(methods) + 0.55, 2.45 * len(noise_levels) + 0.60))
     grid = figure.add_gridspec(len(noise_levels), len(methods), wspace=0.045, hspace=0.055)
     first_axes = {}
     image = None
@@ -294,7 +325,13 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
         for column_index, method in enumerate(methods):
             axis = figure.add_subplot(grid[row_index, column_index])
             result = panel_data[method][float(noise_level)]
-            image = _draw_field(axis, result['absolute_error'], 'Blues', 0.0, error_max)
+            image = _draw_field(
+                axis,
+                result['relative_error_percent'],
+                'Blues',
+                0.0,
+                RELATIVE_ERROR_COLORBAR_MAX_PCT,
+            )
             axis.text(
                 0.03,
                 0.96,
@@ -306,16 +343,17 @@ def plot_case_comparison(output_dir, case, target, panel_data, noise_levels, dpi
                 bbox={'facecolor': 'black', 'alpha': 0.35, 'edgecolor': 'none', 'pad': 2},
             )
             if row_index == 0:
-                axis.set_title(method, fontsize=11, fontweight='bold')
+                axis.set_title(method, fontsize=11, fontweight='bold', pad=7)
             if column_index == 0:
                 first_axes[row_index] = axis
-    figure.subplots_adjust(left=0.10, right=0.90, bottom=0.03, top=0.94)
-    _row_labels(figure, first_axes, noise_levels)
-    color_axis = figure.add_axes([0.92, 0.14, 0.016, 0.74])
+    figure.subplots_adjust(left=0.115, right=0.895, bottom=0.035, top=0.935, wspace=0.045, hspace=0.055)
+    _add_row_labels(figure, first_axes, noise_levels)
+    color_axis = figure.add_axes([0.915, 0.14, 0.016, 0.74])
     colorbar = figure.colorbar(image, cax=color_axis)
-    colorbar.set_label('Absolute error (MPa)', fontsize=10, fontweight='bold')
+    colorbar.set_label('Relative error (%)', fontsize=10, fontweight='bold')
+    colorbar.ax.tick_params(labelsize=9)
     error_path = case_dir / f'error_{condition_id}_sample_{sample_index}.png'
-    figure.savefig(error_path, dpi=dpi, bbox_inches='tight', pad_inches=0.03)
+    _save_figure_pair(figure, error_path, dpi)
     plt.close(figure)
     return prediction_path, error_path
 
@@ -346,15 +384,26 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
                 linewidth=1.4,
                 capsize=2.5,
             )
-        axis.set_title(f'Noise level {noise_level:g}%')
+        axis.set_title(f'Noise level {noise_level:g}%', fontsize=12, fontweight='bold')
         axis.set_xticks([10, 15, 20, 25])
-        axis.tick_params(direction='in')
+        axis.tick_params(direction='in', labelsize=10, width=0.8)
     for axis in axes[-1]:
         axis.set_xlabel('GRF correlation length, $l$ (mm)')
     for axis in axes[:, 0]:
         axis.set_ylabel(r'Relative $L_1$ error (%)')
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    figure.legend(handles, labels, loc='upper center', ncol=3, frameon=False)
+    _add_panel_labels(axes, x=-0.14, y=1.05, fontsize=12)
+    figure.legend(
+        handles,
+        labels,
+        loc='upper center',
+        ncol=3,
+        frameon=True,
+        facecolor='white',
+        edgecolor='black',
+        framealpha=1.0,
+        fancybox=False,
+    )
     figure.tight_layout(rect=(0, 0, 1, 0.95))
     for suffix in ('png', 'pdf'):
         figure.savefig(figure_dir / f'grf_correlation_length.{suffix}', dpi=dpi)

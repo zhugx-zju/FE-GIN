@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 from scipy.io import loadmat
 
@@ -21,10 +22,35 @@ from grf_generalization.pipeline.generators import (
 )
 from grf_generalization.pipeline.metrics import apply_relative_noise, field_metrics
 from grf_generalization.config import get_config
+from grf_generalization.pipeline.evaluation import _build_case_panels
+from grf_generalization.pipeline import visualization
 from grf_generalization.pipeline.visualization import build_paper_table, summarize_metrics
 
 
 class GeneralizationTests(unittest.TestCase):
+    def test_plot_style_matches_existing_project_figures(self):
+        self.assertEqual(matplotlib.rcParams['font.family'], ['serif'])
+        self.assertEqual(matplotlib.rcParams['font.serif'][0], 'Times New Roman')
+        self.assertEqual(matplotlib.rcParams['mathtext.rm'], 'Times New Roman')
+        self.assertEqual(matplotlib.rcParams['font.size'], 10.0)
+        self.assertEqual(matplotlib.rcParams['axes.linewidth'], 0.8)
+        self.assertEqual(visualization._row_label(0, 0.0), '(a) Noise 0%')
+        self.assertEqual(visualization._row_label(5, 10.0), '(f) Noise 10%')
+
+    def test_case_panels_include_project_relative_error_percent(self):
+        target = np.asarray([[1.0, 2.0], [4.0, 8.0]])
+        prediction = np.asarray([[1.1, 1.8], [4.4, 7.2]])
+        cases = [{'condition': 'grf_l25', 'sample_index': 0}]
+        condition_data = {'grf_l25': (np.zeros((1, 2, 2, 2)), target[None, ...])}
+        cache = {
+            (model, 'grf_l25', 0.0): prediction[None, ...]
+            for model in ('MSE-M', 'LM-M', 'GM-M')
+        }
+        panels = _build_case_panels(cases, condition_data, cache, [0.0])
+        result = panels['grf_l25'][2]['MSE-M'][0.0]
+        expected = 100.0 * np.abs(prediction - target) / np.abs(target)
+        self.assertTrue(np.allclose(result['relative_error_percent'], expected))
+
     def test_runner_scripts_do_not_define_main(self):
         for runner in ('run_generate_cases.py', 'run_compare_cases.py'):
             source = (PROJECT_ROOT / 'grf_generalization' / runner).read_text(encoding='utf-8')

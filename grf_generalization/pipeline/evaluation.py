@@ -94,6 +94,11 @@ def _build_case_panels(cases, condition_data, prediction_cache, noise_levels):
                 ]
                 target = targets[sample_index]
                 absolute_error = np.abs(prediction - target)
+                relative_error_percent = np.zeros_like(absolute_error, dtype=float)
+                nonzero = ~np.isclose(target, 0.0)
+                relative_error_percent[nonzero] = (
+                    100.0 * absolute_error[nonzero] / np.abs(target[nonzero])
+                )
                 denominator = np.sum(np.abs(target))
                 relative_l1 = (
                     float(np.sum(absolute_error) / denominator)
@@ -103,6 +108,7 @@ def _build_case_panels(cases, condition_data, prediction_cache, noise_levels):
                 noise_panels[float(noise_level)] = {
                     'prediction': prediction,
                     'absolute_error': absolute_error,
+                    'relative_error_percent': relative_error_percent,
                     'relative_l1': relative_l1,
                 }
             method_panels[model] = noise_panels
