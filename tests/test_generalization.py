@@ -76,11 +76,14 @@ class GeneralizationTests(unittest.TestCase):
     def test_config_contains_three_additional_grf_cases(self):
         cfg = get_config(PROJECT_ROOT)
         configured = [case['condition'] for case in cfg['cases']]
-        self.assertEqual(configured, ['grf_l25', 'grf_l20', 'grf_l15', 'grf_l10'])
+        self.assertEqual(configured, ['grf_l20', 'grf_l15', 'grf_l10'])
         self.assertEqual(cfg['noise_levels'], [0, 2, 4, 6, 8, 10])
         self.assertEqual(cfg['output_dir'], PROJECT_ROOT / 'results' / 'grf_ood')
         self.assertEqual(cfg['sample_preview_indices'], list(range(20)))
-        self.assertEqual(cfg['sample_catalog_condition'], 'grf_l10')
+        self.assertEqual(
+            cfg['sample_catalog_conditions'],
+            ['grf_l20', 'grf_l15', 'grf_l10'],
+        )
 
     def test_preview_indices_are_explicitly_validated(self):
         self.assertEqual(resolve_preview_indices([2, 0, 2], 3), [2, 0])

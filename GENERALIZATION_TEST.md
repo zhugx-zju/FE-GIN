@@ -53,20 +53,22 @@ The dataset is written below `data/generalization_test_sets/force_load/`. Its ma
 python grf_generalization/run_preview_samples.py
 ```
 
-The preview runner writes a compact catalog for `sample_catalog_condition`
-(default: `grf_l10`) and one four-panel true-modulus figure per candidate index.
-The four panels show the paired `l=25, 20, 15, 10 mm` fields using the style of
+The preview runner writes a compact catalog for each condition in
+`sample_catalog_conditions` (default: `grf_l20`, `grf_l15`, `grf_l10`) and one
+three-panel true-modulus figure per candidate index. The panels use the style of
 `asm_unet_compare/plot_true_modulus.py`.
 
-After selecting an index, set the same `sample_index` for all four entries in
-`grf_generalization/config.py`. The same index must be used because the four GRF
-conditions are paired.
+After selecting an index from each catalog, set the corresponding `sample_index`
+for the three entries in `grf_generalization/config.py`. The three indices may be
+selected independently. Using the same index is optional and preserves the paired
+latent draw when a direct cross-length visual comparison is desired.
 
 Preview files are saved under `results/grf_ood/sample_previews/`:
 
-- `true_modulus_sample_catalog_grf_l10.(png|pdf)` shows every candidate index;
-- `paired_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the four
-  paired correlation lengths for one index.
+- `true_modulus_sample_catalog_grf_l{20,15,10}.(png|pdf)` shows every candidate
+  index for each test scale;
+- `scale_fields/true_modulus_grf_sample_<index>.(png|pdf)` compares the three
+  test scales for one index.
 
 ## 3. Evaluate the unchanged final models
 
@@ -92,7 +94,7 @@ results/grf_ood/
 ├── metrics/grf_noise_statistics_table.csv
 ├── figures/grf_correlation_length.(png|pdf)
 ├── figures/grf_noise_statistics_table.(png|pdf)
-└── cases/grf_l{25,20,15,10}/sample_<index>/
+└── cases/grf_l{20,15,10}/sample_<index>/
     ├── prediction_*.png
     └── error_*.png
 ```

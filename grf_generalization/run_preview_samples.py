@@ -14,13 +14,14 @@ from grf_generalization.pipeline.sample_preview import generate_sample_previews
 cfg = get_config(PROJECT_ROOT)
 
 print('=' * 80)
-print('Preview Paired GRF Ground-Truth Samples')
+print('Preview GRF Ground-Truth Samples for Manual Case Selection')
 print('=' * 80)
 print(f"Sample indices: {cfg['sample_preview_indices']}")
-print(f"Catalog condition: {cfg['sample_catalog_condition']}")
+print(f"Catalog conditions: {cfg['sample_catalog_conditions']}")
 print(f"Output directory: {cfg['output_dir'] / 'sample_previews'}")
 
 outputs = generate_sample_previews(cfg)
 
-print(f"Saved sample catalog: {outputs['catalog_png']}")
-print(f"Saved paired sample figures: {len(outputs['paired_samples'])}")
+for condition_id, paths in outputs['catalogs'].items():
+    print(f'Saved {condition_id} sample catalog: {paths[0]}')
+print(f"Saved three-scale sample figures: {len(outputs['scale_samples'])}")

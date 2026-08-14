@@ -8,8 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.io import loadmat
 
-from .common import GRF_CONDITION_ORDER
 from .visualization import _add_panel_labels, _style_field_colorbar
+
+
+DEFAULT_PREVIEW_CONDITIONS = ('grf_l20', 'grf_l15', 'grf_l10')
 
 
 def resolve_preview_indices(requested_indices, sample_count):
@@ -31,7 +33,7 @@ def resolve_preview_indices(requested_indices, sample_count):
     return resolved
 
 
-def _load_grf_targets(data_root):
+def _load_grf_targets(data_root, condition_ids):
     data_root = Path(data_root).resolve()
     manifest_path = data_root / 'manifest.json'
     if not manifest_path.exists():
@@ -48,9 +50,9 @@ def _load_grf_targets(data_root):
         condition['condition_id']: condition for condition in manifest['conditions']
     }
     targets = {}
-    for condition_id in GRF_CONDITION_ORDER:
+    for condition_id in condition_ids:
         if condition_id not in condition_lookup:
-            raise KeyError(f'Missing paired GRF condition: {condition_id}')
+            raise KeyError(f'Missing GRF preview condition: {condition_id}')
         condition = condition_lookup[condition_id]
         output_path = data_root / condition['directory'] / 'output.mat'
         targets[condition_id] = np.asarray(loadmat(output_path)['E'], dtype=float)
@@ -84,16 +86,16 @@ def _save_figure_pair(figure, png_path, dpi):
     return png_path, pdf_path
 
 
-def _plot_paired_sample(output_dir, targets, sample_index, dpi):
-    pair_dir = Path(output_dir) / 'sample_previews' / 'paired_fields'
-    pair_dir.mkdir(parents=True, exist_ok=True)
+def _plot_scale_sample(output_dir, targets, condition_ids, sample_index, dpi):
+    scale_dir = Path(output_dir) / 'sample_previews' / 'scale_fields'
+    scale_dir.mkdir(parents=True, exist_ok=True)
     figure, axes = plt.subplots(
         1,
-        len(GRF_CONDITION_ORDER),
-        figsize=(3.8 * len(GRF_CONDITION_ORDER), 3.4),
+        len(condition_ids),
+        figsize=(3.8 * len(condition_ids), 3.4),
     )
     axes = np.atleast_1d(axes)
-    for condition_id, axis in zip(GRF_CONDITION_ORDER, axes):
+    for condition_id, axis in zip(condition_ids, axes):
         field = targets[condition_id][sample_index]
         image = _draw_true_field(axis, field, float(np.min(field)), float(np.max(field)))
         axis.set_title(
@@ -113,7 +115,7 @@ def _plot_paired_sample(output_dir, targets, sample_index, dpi):
         top=0.87,
         wspace=0.30,
     )
-    output_path = pair_dir / f'true_modulus_grf_sample_{sample_index:02d}.png'
+    output_path = scale_dir / f'true_modulus_grf_sample_{sample_index:02d}.png'
     paths = _save_figure_pair(figure, output_path, dpi)
     plt.close(figure)
     return paths
@@ -168,35 +170,40 @@ def _plot_sample_catalog(output_dir, fields, condition_id, sample_indices, dpi):
 
 
 def generate_sample_previews(cfg):
-    """Write a sample catalog and paired four-length figures."""
-    targets = _load_grf_targets(cfg['data_dir'])
+    """Write catalogs and three-scale figures for manual sample selection."""
+    condition_ids = tuple(
+        str(value)
+        for value in cfg.get('sample_catalog_conditions', DEFAULT_PREVIEW_CONDITIONS)
+    )
+    if not condition_ids:
+        raise ValueError('sample_catalog_conditions must not be empty.')
+    targets = _load_grf_targets(cfg['data_dir'], condition_ids)
     sample_count = next(iter(targets.values())).shape[0]
     sample_indices = resolve_preview_indices(
         cfg.get('sample_preview_indices', range(sample_count)),
         sample_count,
     )
-    catalog_condition = str(cfg.get('sample_catalog_condition', 'grf_l10'))
-    if catalog_condition not in targets:
-        raise KeyError(f'Unknown sample_catalog_condition: {catalog_condition}')
-
-    catalog_paths = _plot_sample_catalog(
-        cfg['output_dir'],
-        targets[catalog_condition],
-        catalog_condition,
-        sample_indices,
-        int(cfg.get('dpi', 600)),
-    )
-    paired_paths = {
-        sample_index: _plot_paired_sample(
+    catalog_paths = {
+        condition_id: _plot_sample_catalog(
+            cfg['output_dir'],
+            targets[condition_id],
+            condition_id,
+            sample_indices,
+            int(cfg.get('dpi', 600)),
+        )
+        for condition_id in condition_ids
+    }
+    scale_paths = {
+        sample_index: _plot_scale_sample(
             cfg['output_dir'],
             targets,
+            condition_ids,
             sample_index,
             int(cfg.get('dpi', 600)),
         )
         for sample_index in sample_indices
     }
     return {
-        'catalog_png': catalog_paths[0],
-        'catalog_pdf': catalog_paths[1],
-        'paired_samples': paired_paths,
+        'catalogs': catalog_paths,
+        'scale_samples': scale_paths,
     }
