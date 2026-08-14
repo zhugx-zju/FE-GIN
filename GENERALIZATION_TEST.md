@@ -59,6 +59,8 @@ The preview runner writes a compact catalog for each condition in
 `sample_catalog_conditions` (default: `grf_l20`, `grf_l15`, `grf_l10`,
 `grf_l5`) and one four-panel true-modulus figure per candidate index. The panels use the style of
 `asm_unet_compare/plot_true_modulus.py`.
+Each sample panel in a catalog uses its own colorbar so that its internal spatial
+gradient can be inspected without compression by samples having a larger modulus range.
 
 After selecting an index from each catalog, set the corresponding `sample_index`
 for the four entries in `grf_generalization/config.py`. The four indices may be

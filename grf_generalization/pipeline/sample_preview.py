@@ -131,40 +131,41 @@ def _plot_sample_catalog(output_dir, fields, condition_id, sample_indices, dpi):
     figure, axes = plt.subplots(
         row_count,
         column_count,
-        figsize=(2.85 * column_count + 0.65, 2.75 * row_count + 0.55),
+        figsize=(3.8 * column_count, 3.4 * row_count),
         squeeze=False,
     )
-    selected_fields = [fields[sample_index] for sample_index in sample_indices]
-    vmin = float(min(np.min(field) for field in selected_fields))
-    vmax = float(max(np.max(field) for field in selected_fields))
     used_axes = []
-    image = None
     for panel_index, axis in enumerate(axes.ravel()):
         if panel_index >= len(sample_indices):
             axis.axis('off')
             continue
         sample_index = sample_indices[panel_index]
-        image = _draw_true_field(axis, fields[sample_index], vmin, vmax)
+        field = fields[sample_index]
+        image = _draw_true_field(
+            axis,
+            field,
+            float(np.min(field)),
+            float(np.max(field)),
+        )
         axis.set_title(
             f'Sample {sample_index}',
             fontsize=14,
             fontweight='normal',
             pad=4,
         )
+        colorbar = figure.colorbar(image, ax=axis, fraction=0.046, pad=0.025)
+        _style_field_colorbar(colorbar, 'Modulus (MPa)')
         used_axes.append(axis)
 
     _add_panel_labels(used_axes, x=-0.10, y=1.06, fontsize=13)
     figure.subplots_adjust(
         left=0.045,
-        right=0.900,
+        right=0.985,
         bottom=0.045,
         top=0.935,
-        wspace=0.12,
-        hspace=0.20,
+        wspace=0.42,
+        hspace=0.28,
     )
-    color_axis = figure.add_axes([0.920, 0.14, 0.016, 0.72])
-    colorbar = figure.colorbar(image, cax=color_axis)
-    _style_field_colorbar(colorbar, 'Modulus (MPa)')
     output_path = preview_dir / f'true_modulus_sample_catalog_{condition_id}.png'
     paths = _save_figure_pair(figure, output_path, dpi)
     plt.close(figure)
@@ -172,7 +173,7 @@ def _plot_sample_catalog(output_dir, fields, condition_id, sample_indices, dpi):
 
 
 def generate_sample_previews(cfg):
-    """Write catalogs and three-scale figures for manual sample selection."""
+    """Write catalogs and selected-scale figures for manual sample selection."""
     condition_ids = tuple(
         str(value)
         for value in cfg.get('sample_catalog_conditions', DEFAULT_PREVIEW_CONDITIONS)

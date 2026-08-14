@@ -94,7 +94,7 @@ class GeneralizationTests(unittest.TestCase):
         with self.assertRaisesRegex(IndexError, 'outside the available range'):
             resolve_preview_indices([3], 3)
 
-    def test_preview_contours_use_the_requested_shared_color_range(self):
+    def test_preview_contours_use_the_requested_color_range(self):
         figure, axis = plt.subplots()
         image = _draw_true_field(
             axis,
