@@ -265,18 +265,27 @@ def _plot_grid(
                 ax.set_title(case.column_title, fontsize=16, pad=3)
             if col_idx == 0:
                 ax.text(
-                    -0.18,
-                    1.04,
+                    -0.16,
+                    1.10,
                     _row_tag(row_idx),
                     transform=ax.transAxes,
                     ha="left",
                     va="top",
-                    fontsize=14,
+                    fontsize=16,
+                )
+                ax.text(
+                    -0.16,
+                    1.00,
+                    f"{noise:g}%",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
                 )
             if is_error:
                 ax.text(
                     0.00,
-                    0.97,
+                    0.995,
                     f"$L_1$={row['l1']:.2e}",
                     transform=ax.transAxes,
                     ha="left",
