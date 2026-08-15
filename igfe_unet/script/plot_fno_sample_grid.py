@@ -7,7 +7,7 @@ files written by ``compare_fno_unet_fields.py`` and creates two figures:
   columns; and
 * the corresponding pointwise relative-error fields in the same layout.
 
-By default the columns are EXP sample 200, GRF sample 410, and BIL sample 600,
+By default the columns are BIL sample 600, EXP sample 200, and GRF sample 410,
 and the rows are 0%, 2%, 4%, 6%, 8%, and 10% input noise.
 """
 
@@ -32,7 +32,7 @@ RELATIVE_ERROR_COLORBAR_MAX_PCT = 10.0
 DEFAULT_COMPARISON_ROOT = (
     PROJECT_ROOT / "results" / "force_load" / "asm_unet_comparison"
 )
-DEFAULT_CASES = ("exp:200", "grf:410", "bil:600")
+DEFAULT_CASES = ("bil:600", "exp:200", "grf:410")
 DEFAULT_NOISE_LEVELS = (0, 2, 4, 6, 8, 10)
 DEFAULT_OUTPUT_DIRNAME = "fno_sample_grid"
 
@@ -273,15 +273,6 @@ def _plot_grid(
                     va="top",
                     fontsize=16,
                 )
-                ax.text(
-                    -0.16,
-                    1.00,
-                    f"{noise:g}%",
-                    transform=ax.transAxes,
-                    ha="left",
-                    va="top",
-                    fontsize=10,
-                )
             if is_error:
                 ax.text(
                     0.00,
@@ -348,7 +339,7 @@ def parse_args(argv=None):
         type=_parse_case,
         default=[_parse_case(value) for value in DEFAULT_CASES],
         metavar="DATASET:SAMPLE_INDEX",
-        help="Column order, e.g. exp:200 grf:410 bil:600.",
+        help="Column order, e.g. bil:600 exp:200 grf:410.",
     )
     parser.add_argument(
         "--noise-levels",

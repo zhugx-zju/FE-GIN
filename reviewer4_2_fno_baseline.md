@@ -62,11 +62,11 @@
 |  | `w32–m16×16–l4` | 0.1099 | 0.0185 | 0.1213 | 0.0308 | 0.1329 | 0.2397 | 0.1210 | 0.1585 |
 |  | `w64–m16×16–l4` | 0.1383 | 0.0375 | 0.1319 | 0.0363 | 0.1531 | 0.2532 | 0.1417 | 0.1766 |
 
-> Figures X1 and X2 show the FNO prediction and pointwise relative-error fields for EXP sample 200, GRF sample 410, and BIL sample 600. The column headings show the dataset names without sample indices, while rows (a)–(f) correspond to 0%, 2%, 4%, 6%, 8%, and 10% input noise. The same noise realization used in the quantitative comparison is retained for each sample and noise level.
+> Figures X1 and X2 show the FNO prediction and pointwise relative-error fields for BIL sample 600, EXP sample 200, and GRF sample 410. The column headings show the dataset names without sample indices, while rows (a)–(f) correspond to 0%, 2%, 4%, 6%, 8%, and 10% input noise. The same noise realization used in the quantitative comparison is retained for each sample and noise level.
 
 ![FNO prediction fields arranged by noise level and sample case](results/force_load/asm_unet_comparison/GN/fno_sample_grid/fno_prediction_noise_by_sample_GN.png)
 
-> **Fig. X1.** Predicted modulus fields obtained with the MSE-trained FNO (`w64–m16×16–l4`). Columns show EXP sample 200, GRF sample 410, and BIL sample 600; rows (a)–(f) show input-noise levels of 0%, 2%, 4%, 6%, 8%, and 10%, respectively. Each panel has its own colorbar, while identical color limits are used for all noise levels of the same sample case.
+> **Fig. X1.** Predicted modulus fields obtained with the MSE-trained FNO (`w64–m16×16–l4`). Columns show BIL sample 600, EXP sample 200, and GRF sample 410; rows (a)–(f) show input-noise levels of 0%, 2%, 4%, 6%, 8%, and 10%, respectively. Each panel has its own colorbar, while identical color limits are used for all noise levels of the same sample case.
 
 ![FNO relative-error fields arranged by noise level and sample case](results/force_load/asm_unet_comparison/GN/fno_sample_grid/fno_error_noise_by_sample_GN.png)
 
@@ -84,7 +84,7 @@ FNO-only 总图由以下脚本读取已保存的逐噪声 `.npz` 文件生成，
 python igfe_unet/script/plot_fno_sample_grid.py
 ```
 
-脚本默认使用 `exp:200 grf:410 bil:600` 三列和 `0 2 4 6 8 10` 六行，也可以通过 `--cases`、`--noise-levels`、`--comparison-root` 和 `--output-dir` 修改。
+脚本默认使用 `bil:600 exp:200 grf:410` 三列和 `0 2 4 6 8 10` 六行，也可以通过 `--cases`、`--noise-levels`、`--comparison-root` 和 `--output-dir` 修改。
 
 ```text
 igfe_unet/script/plot_fno_sample_grid.py
