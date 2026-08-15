@@ -416,11 +416,7 @@ def plot_correlation_length_curves(output_dir, summaries, dpi=600):
         labels,
         loc='upper center',
         ncol=3,
-        frameon=True,
-        facecolor='white',
-        edgecolor='black',
-        framealpha=1.0,
-        fancybox=False,
+        frameon=False,
     )
     figure.tight_layout(rect=(0, 0, 1, 0.95))
     for suffix in ('png', 'pdf'):
