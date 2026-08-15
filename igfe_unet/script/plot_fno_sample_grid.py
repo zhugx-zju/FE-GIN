@@ -56,6 +56,10 @@ class SampleCase:
     def title(self) -> str:
         return f"{self.dataset.upper()} sample {self.sample_index}"
 
+    @property
+    def column_title(self) -> str:
+        return self.dataset.upper()
+
 
 def _parse_case(value: str) -> SampleCase:
     try:
@@ -183,6 +187,19 @@ def _style_colorbar(colorbar, label: str) -> None:
     colorbar.outline.set_linewidth(0.8)
 
 
+def _style_panel_colorbar(colorbar) -> None:
+    colorbar.ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
+    colorbar.ax.yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+    colorbar.ax.tick_params(
+        direction="in", which="both", labelsize=8, length=2.5, width=0.6
+    )
+    colorbar.outline.set_linewidth(0.6)
+
+
+def _row_tag(row_idx: int) -> str:
+    return f"({chr(ord('a') + row_idx)})"
+
+
 def _save_figure(fig, png_path: Path, dpi: int) -> tuple[Path, Path]:
     png_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_path = png_path.with_suffix(".pdf")
@@ -208,17 +225,24 @@ def _plot_grid(
     is_error = field_key == "rel_err"
 
     if is_error:
-        vmin, vmax, cmap = 0.0, float(error_vmax), "Blues"
+        error_range = (0.0, float(error_vmax))
+        prediction_ranges = None
+        cmap = "Blues"
     else:
-        targets = [case_fields[case][noise_levels[0]]["target"] for case in cases]
-        vmin = float(min(np.min(target) for target in targets))
-        vmax = float(max(np.max(target) for target in targets))
+        error_range = None
+        prediction_ranges = {
+            case: (
+                float(np.min(case_fields[case][noise_levels[0]]["target"])),
+                float(np.max(case_fields[case][noise_levels[0]]["target"])),
+            )
+            for case in cases
+        }
         cmap = "viridis"
 
     fig, axes = plt.subplots(
         n_rows,
         n_cols,
-        figsize=(2.75 * n_cols + 0.9, 2.62 * n_rows + 0.45),
+        figsize=((3.05 if not is_error else 2.75) * n_cols + 0.9, 2.62 * n_rows + 0.45),
         squeeze=False,
     )
     image_ref = None
@@ -226,6 +250,10 @@ def _plot_grid(
         for col_idx, case in enumerate(cases):
             ax = axes[row_idx, col_idx]
             row = case_fields[case][float(noise)]
+            if is_error:
+                vmin, vmax = error_range
+            else:
+                vmin, vmax = prediction_ranges[case]
             image_ref = _draw_field(
                 ax=ax,
                 values=row[field_key],
@@ -234,15 +262,15 @@ def _plot_grid(
                 vmax=vmax,
             )
             if row_idx == 0:
-                ax.set_title(case.title, fontsize=15, pad=3)
+                ax.set_title(case.column_title, fontsize=16, pad=3)
             if col_idx == 0:
                 ax.text(
-                    -0.13,
-                    0.50,
-                    f"{noise:g}%",
+                    -0.18,
+                    1.04,
+                    _row_tag(row_idx),
                     transform=ax.transAxes,
-                    ha="right",
-                    va="center",
+                    ha="left",
+                    va="top",
                     fontsize=14,
                 )
             if is_error:
@@ -262,30 +290,38 @@ def _plot_grid(
                         "boxstyle": "square,pad=0.0",
                     },
                 )
+            else:
+                panel_colorbar = fig.colorbar(
+                    image_ref,
+                    ax=ax,
+                    fraction=0.046,
+                    pad=0.025,
+                    aspect=18,
+                )
+                _style_panel_colorbar(panel_colorbar)
 
     fig.subplots_adjust(
-        left=0.115,
-        right=0.875,
+        left=0.075 if not is_error else 0.105,
+        right=0.955 if not is_error else 0.875,
         bottom=0.025,
         top=0.955,
-        wspace=0.055,
+        wspace=0.08 if not is_error else 0.055,
         hspace=0.085,
     )
-    fig.text(
-        0.025,
-        0.50,
-        "Input noise level",
-        rotation=90,
-        ha="center",
-        va="center",
-        fontsize=15,
-    )
-    cax = fig.add_axes([0.900, 0.14, 0.020, 0.74])
-    colorbar = fig.colorbar(image_ref, cax=cax)
-    _style_colorbar(
-        colorbar,
-        "Relative error (%)" if is_error else "Modulus (MPa)",
-    )
+    if is_error:
+        cax = fig.add_axes([0.900, 0.14, 0.020, 0.74])
+        colorbar = fig.colorbar(image_ref, cax=cax)
+        _style_colorbar(colorbar, "Relative error (%)")
+    else:
+        fig.text(
+            0.985,
+            0.50,
+            "Modulus (MPa)",
+            rotation=90,
+            ha="center",
+            va="center",
+            fontsize=15,
+        )
     return _save_figure(fig, output_path, dpi)
 
 

@@ -62,15 +62,15 @@
 |  | `w32–m16×16–l4` | 0.1099 | 0.0185 | 0.1213 | 0.0308 | 0.1329 | 0.2397 | 0.1210 | 0.1585 |
 |  | `w64–m16×16–l4` | 0.1383 | 0.0375 | 0.1319 | 0.0363 | 0.1531 | 0.2532 | 0.1417 | 0.1766 |
 
-> Figures X1 and X2 show the FNO prediction and pointwise relative-error fields for EXP sample 200, GRF sample 410, and BIL sample 600. Columns correspond to the three sample cases, while rows correspond to 0%, 2%, 4%, 6%, 8%, and 10% input noise. The same noise realization used in the quantitative comparison is retained for each sample and noise level.
+> Figures X1 and X2 show the FNO prediction and pointwise relative-error fields for EXP sample 200, GRF sample 410, and BIL sample 600. The column headings show the dataset names without sample indices, while rows (a)–(f) correspond to 0%, 2%, 4%, 6%, 8%, and 10% input noise. The same noise realization used in the quantitative comparison is retained for each sample and noise level.
 
 ![FNO prediction fields arranged by noise level and sample case](results/force_load/asm_unet_comparison/GN/fno_sample_grid/fno_prediction_noise_by_sample_GN.png)
 
-> **Fig. X1.** Predicted modulus fields obtained with the MSE-trained FNO (`w64–m16×16–l4`). Columns show EXP sample 200, GRF sample 410, and BIL sample 600; rows show input-noise levels from 0% to 10%. A common modulus scale is used for all panels.
+> **Fig. X1.** Predicted modulus fields obtained with the MSE-trained FNO (`w64–m16×16–l4`). Columns show EXP sample 200, GRF sample 410, and BIL sample 600; rows (a)–(f) show input-noise levels of 0%, 2%, 4%, 6%, 8%, and 10%, respectively. Each panel has its own colorbar, while identical color limits are used for all noise levels of the same sample case.
 
 ![FNO relative-error fields arranged by noise level and sample case](results/force_load/asm_unet_comparison/GN/fno_sample_grid/fno_error_noise_by_sample_GN.png)
 
-> **Fig. X2.** Pointwise relative-error fields corresponding to Fig. X1. The value shown in each panel is the sample-wise relative \(L_1\) error, and a common 0%–10% error scale is used for all panels.
+> **Fig. X2.** Pointwise relative-error fields corresponding to Fig. X1. Rows (a)–(f) represent input-noise levels of 0%, 2%, 4%, 6%, 8%, and 10%, respectively. The value shown in each panel is the sample-wise relative \(L_1\) error, and a common 0%–10% error scale is used for all panels.
 
 > The reported results characterize the four MSE-trained FNO configurations evaluated here. They should not be interpreted as an exhaustive assessment of the FNO family because the number of Fourier layers was fixed, all runs used one training seed, and no noise augmentation was applied. Noise-aware validation and training-time noise augmentation may improve robustness but are outside the scope of the current revision.
 
