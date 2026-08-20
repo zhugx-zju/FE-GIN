@@ -336,35 +336,39 @@ For the FNO architecture study, run the following U-Net-style sequence:
 ```bash
 python igfe_unet/script/train_fno_architectures.py
 python igfe_unet/script/val_fno_architectures.py
-python igfe_unet/script/test_fno_architectures.py
+python igfe_unet/script/select_fno_baseline.py
+python igfe_unet/script/test_fno_final_models.py
 python igfe_unet/script/compare_fno_architectures.py
 ```
 
-Select the architecture using validation MIX relative-L1 only. The selector
-does not load test result files and does not overwrite an existing final-model
-directory:
+Architecture selection uses only the clean MIX validation relative-L1 error;
+test results are not read during selection. The selected checkpoint is copied
+to `trained_models_fno/force_load/final_model/` and then evaluated at noise
+levels `[0, 2, 4, 6, 8, 10]`. The final comparison command writes the exact
+Appendix Table F1/F2 inputs to:
 
-```bash
-python igfe_unet/script/select_fno_baseline.py
+```text
+results_fno/force_load/architecture_sweep/all_experiments.csv
+results_fno/force_load/architecture_sweep/selected_fno_test_results.csv
+results_fno/force_load/architecture_sweep/fno_appendix_tables.md
 ```
 
-The selected checkpoint is copied into
-`trained_models_fno/force_load/final_model/` with a
-`selection_metadata.json` file containing the validation score and parameter
-count. Finally run:
+Here `all_experiments.csv` contains the clean MIX validation mean/std for all
+four structures, rather than a generic test-set summary. The optional
+`test_fno_architectures.py` script remains available when test results for all
+architecture candidates are needed for a separate analysis, but it is not
+part of validation-based model selection.
 
-```bash
-python igfe_unet/script/test_fno_final_models.py
-```
-
-This final-model script evaluates every configured noise level `[0, 2, 4, 6, 8,
-10]` and writes the same `all_L1_*`, prediction, and metric files as U-Net.
 After U-Net and FNO final models have been tested, the shared comparison table
 is generated with:
 
 ```bash
 python igfe_unet/script/compare_unified_models.py
 ```
+
+The table is saved below `results/force_load/final_model/` and contains the
+model family, architecture, training time, relative L1, MAE, RMSE, and field
+mean/standard-deviation columns for each noise level and evaluation subset.
 
 For representative prediction/error cloud maps on the same fixed-test
 samples and deterministic noise inputs, run:
@@ -380,9 +384,18 @@ panels into the existing
 `results/force_load/asm_unet_comparison/GN/sample_<index>/<dataset>/`
 hierarchy. Existing ASM/U-Net figures are preserved.
 
-The table is saved below `results/force_load/final_model/` and contains the
-model family, architecture, training time, relative L1, MAE, RMSE, and field
-mean/standard-deviation columns for each noise level and evaluation subset.
+To regenerate the FNO-only Appendix sample fields and Figs. F1/F2 directly
+from the selected checkpoint in one command, without existing `.npz` files or
+U-Net/ASM checkpoints, run:
+
+```bash
+python igfe_unet/script/generate_fno_appendix_figures.py
+```
+
+The defaults are BIL sample 600, EXP sample 200, GRF sample 410 and noise
+levels `[0, 2, 4, 6, 8, 10]`. The script saves per-noise inference fields and
+the final PNG/PDF grids below
+`results/force_load/asm_unet_comparison/GN/fno_sample_grid/`.
 
 ### 4. Train and evaluate the FNO baseline
 

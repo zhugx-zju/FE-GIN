@@ -241,3 +241,35 @@ conventions and saves prediction/error PNG/PDF panels, per-noise `.npz`
 fields, FNO-compatible result/config files, and a metrics CSV into the
 existing `results/force_load/asm_unet_comparison/GN/sample_<index>/<dataset>/`
 hierarchy without replacing the existing ASM/U-Net figures.
+
+### 7. Reproduce the Appendix tables and FNO-only figures
+
+After the architecture candidates have been validated and the selected final
+model has been tested, export the exact statistics used in Tables F1 and F2:
+
+```bash
+python igfe_unet/script/compare_fno_architectures.py
+```
+
+This produces a validation-only architecture table, a selected-model test
+table covering BIL/EXP/GRF/MIX at all six noise levels, and a ready-to-copy
+Markdown file:
+
+```text
+results_fno/force_load/architecture_sweep/all_experiments.csv
+results_fno/force_load/architecture_sweep/selected_fno_test_results.csv
+results_fno/force_load/architecture_sweep/fno_appendix_tables.md
+```
+
+Generate the Appendix sample predictions and relative-error grids directly
+from the selected FNO checkpoint with:
+
+```bash
+python igfe_unet/script/generate_fno_appendix_figures.py
+```
+
+This command performs FNO inference for BIL sample 600, EXP sample 200, and
+GRF sample 410 at noise levels 0%, 2%, 4%, 6%, 8%, and 10%. It does not require
+pre-existing `.npz` fields or any U-Net/ASM checkpoint. The final PNG and PDF
+figures are written to
+`results/force_load/asm_unet_comparison/GN/fno_sample_grid/`.

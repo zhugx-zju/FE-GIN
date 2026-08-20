@@ -56,15 +56,15 @@ def _validation_file(exp_path: Path, eval_type: str = "mix") -> Path:
     return exp_path / "all_samples_val" / "all_L1_val_mix.txt"
 
 
-def _validation_score(exp_path: Path) -> tuple[float, int]:
-    """Return mean validation relative-L1 and sample count."""
+def _validation_score(exp_path: Path) -> tuple[float, float, int]:
+    """Return validation relative-L1 mean, population std, and sample count."""
     score_path = _validation_file(exp_path)
     if not score_path.is_file():
         raise FileNotFoundError(f"Validation score file not found: {score_path}")
     values = np.asarray(np.loadtxt(score_path), dtype=float).reshape(-1)
     if values.size == 0 or not np.all(np.isfinite(values)):
         raise ValueError(f"Validation score file is empty or non-finite: {score_path}")
-    return float(np.mean(values)), int(values.size)
+    return float(np.mean(values)), float(np.std(values)), int(values.size)
 
 
 def _parameter_counts(config: dict) -> tuple[int, int]:
@@ -90,10 +90,12 @@ def discover_candidates(
     group: str = DEFAULT_GROUP,
     load_type: str = DEFAULT_LOAD_TYPE,
     backend: str = DEFAULT_BACKEND,
+    base_dir: Path | None = None,
 ) -> list[dict]:
     """Discover FNO architecture candidates and score them on validation only."""
     candidates = []
     for config_type, found_load_type, exp_id, raw_path in find_all_experiments(
+        base_dir=base_dir,
         experiment_group=group,
     ):
         exp_path = Path(raw_path)
@@ -113,7 +115,7 @@ def discover_candidates(
             continue
 
         try:
-            score, sample_count = _validation_score(exp_path)
+            score, score_std, sample_count = _validation_score(exp_path)
             parameter_count, parameter_tensor_count = _parameter_counts(config)
         except (FileNotFoundError, KeyError, TypeError, ValueError, RuntimeError) as exc:
             print(f"Skipping {exp_id}: {exc}")
@@ -127,9 +129,11 @@ def discover_candidates(
             "exp_path": str(exp_path.resolve()),
             "validation_file": str(_validation_file(exp_path).resolve()),
             "validation_relative_l1_mean": score,
+            "validation_relative_l1_std": score_std,
             "validation_sample_count": sample_count,
             "parameter_count": parameter_count,
             "parameter_tensor_count": parameter_tensor_count,
+            "training_time": config.get("time"),
             "config": config,
         })
 
@@ -163,6 +167,7 @@ def _copy_selected_model(
         "selection_split": "val",
         "selection_score_file": selected["validation_file"],
         "validation_relative_l1_mean": selected["validation_relative_l1_mean"],
+        "validation_relative_l1_std": selected["validation_relative_l1_std"],
         "validation_sample_count": selected["validation_sample_count"],
         "parameter_count": selected["parameter_count"],
         "parameter_tensor_count": selected["parameter_tensor_count"],
@@ -183,6 +188,9 @@ def _copy_selected_model(
         handle.write(
             f"validation_relative_l1_mean = {selected['validation_relative_l1_mean']!r}\n"
         )
+        handle.write(
+            f"validation_relative_l1_std = {selected['validation_relative_l1_std']!r}\n"
+        )
         handle.write("selection_rule = 'minimum mean validation relative L1 on MIX'\n")
     return destination
 
@@ -192,9 +200,11 @@ def _write_selection_table(candidates: list[dict], output_path: Path) -> None:
     fieldnames = [
         "exp_id",
         "validation_relative_l1_mean",
+        "validation_relative_l1_std",
         "validation_sample_count",
         "parameter_count",
         "parameter_tensor_count",
+        "training_time",
         "validation_file",
         "exp_path",
     ]
@@ -250,7 +260,9 @@ def main(argv=None):
     for candidate in candidates:
         print(
             f"  {candidate['exp_id']}: "
-            f"val_relative_L1={candidate['validation_relative_l1_mean']:.8f}, "
+            f"val_relative_L1="
+            f"{candidate['validation_relative_l1_mean']:.8f} +/- "
+            f"{candidate['validation_relative_l1_std']:.8f}, "
             f"params={candidate['parameter_count']}"
         )
     print(f"Saved validation selection table: {table_path.resolve()}")
