@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this repository, please cite the software and the associated FE-GIN manuscript."
+message: "If you use this repository or the FE-GIN method in your research, please cite the associated article."
 title: "FE-GIN: Finite-Element-Guided Inversion Network for Full-Field Modulus Reconstruction"
 type: software
 license: MIT
@@ -12,12 +12,18 @@ authors:
     given-names: Weiqiu
 preferred-citation:
   type: article
-  title: "Finite-element-guided inversion network for full-field reconstruction of graded modulus fields in continuous high-throughput mechanical characterization"
+  title: "Finite-element-guided inversion network for full-field reconstruction of graded modulus distributions"
   authors:
     - family-names: Zhu
       given-names: Gengxuan
+    - family-names: Li
+      given-names: Zonghao
     - family-names: Bao
       given-names: Ronghao
     - family-names: Chen
       given-names: Weiqiu
+  journal: "International Journal of Mechanical Sciences"
   year: 2026
+  start: 112126
+  doi: "10.1016/j.ijmecsci.2026.112126"
+  url: "https://doi.org/10.1016/j.ijmecsci.2026.112126"
