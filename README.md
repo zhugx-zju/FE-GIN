@@ -7,7 +7,7 @@ This repository collects the code used to study full-field Young's modulus recon
 - an adjoint/L-BFGS-B inverse solver baseline with Tikhonov regularization
 - comparison utilities for pure U-Net inference, cold-start ASM inversion, and UNet-warm-start ASM inversion
 
-The codebase follows the FE-GIN workflow described in the manuscript *Finite-element-guided inversion network for full-field reconstruction of graded modulus fields in continuous high-throughput mechanical characterization*.
+The codebase follows the FE-GIN workflow described in the article [*Finite-element-guided inversion network for full-field reconstruction of graded modulus distributions*](https://doi.org/10.1016/j.ijmecsci.2026.112126).
 
 ## What This Repository Covers
 
@@ -196,7 +196,7 @@ python -m pip install numpy scipy matplotlib pandas
 
 This GitHub repository is source-only. The dataset and pretrained model assets are released separately on Hugging Face:
 
-- dataset repository: `zhugx/fe_gin_data`
+- dataset repository: [`zhugx/fe_gin_data`](https://huggingface.co/datasets/zhugx/fe_gin_data)
 - model repository: `zhugx/fe_gin_models`
 
 Recommended local layout after download:
@@ -583,7 +583,7 @@ To reproduce the full workflow after cloning, you need to separately obtain or r
 For the current public release workflow:
 
 - source code lives in this GitHub repository
-- datasets live in the Hugging Face dataset repository `zhugx/fe_gin_data`
+- datasets live in the Hugging Face dataset repository [`zhugx/fe_gin_data`](https://huggingface.co/datasets/zhugx/fe_gin_data)
 - pretrained models live in the Hugging Face model repository `zhugx/fe_gin_models`
 
 ## Notes on Third-Party Code
@@ -603,9 +603,18 @@ The documentation has been centralized in this root README so that the project h
 
 ## Citation
 
-If you use this repository in academic work, please cite the accompanying FE-GIN manuscript:
+If you use this repository or the FE-GIN method in your research, please cite the associated article:
 
-- Gengxuan Zhu, Ronghao Bao, Weiqiu Chen
-- *Finite-element-guided inversion network for full-field reconstruction of graded modulus fields in continuous high-throughput mechanical characterization*
+> G. Zhu, Z. Li, R. Bao, and W. Chen, "Finite-element-guided inversion network for full-field reconstruction of graded modulus distributions," *International Journal of Mechanical Sciences*, article 112126, 2026. https://doi.org/10.1016/j.ijmecsci.2026.112126
 
-If the paper is published later, add the final journal citation or BibTeX entry here.
+```bibtex
+@article{Zhu2026FEGIN,
+  title   = {Finite-element-guided inversion network for full-field reconstruction of graded modulus distributions},
+  author  = {Zhu, Gengxuan and Li, Zonghao and Bao, Ronghao and Chen, Weiqiu},
+  journal = {International Journal of Mechanical Sciences},
+  year    = {2026},
+  pages   = {112126},
+  doi     = {10.1016/j.ijmecsci.2026.112126},
+  url     = {https://doi.org/10.1016/j.ijmecsci.2026.112126}
+}
+```
