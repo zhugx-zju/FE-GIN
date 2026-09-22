@@ -14,6 +14,7 @@ The codebase follows the FE-GIN workflow described in the article [*Finite-eleme
 - generate displacement-modulus pairs for BIL, EXP, and GRF modulus fields
 - preprocess MATLAB data into tensors and FE residual metadata for neural training
 - train U-Net models with data, physics-only, and hybrid losses
+- run fixed-data, multi-seed reproducibility experiments with deterministic seed controls
 - benchmark against a classical adjoint-state inverse solver
 - compare reconstruction quality, noise robustness, and warm-start behavior on shared fixed test sets
 
@@ -301,6 +302,39 @@ The architecture group and the standard/gamma groups use the default `data_mix`
 dataset. Ratio experiments use their own immutable dataset directories, so
 they cannot overwrite the default dataset or another ratio's train/val split.
 
+#### Fixed-data multi-seed reproducibility
+
+The reproducibility workflow retrains `MSE-M`, `LM-M`, and `GM-M` across a
+shared set of initialization seeds while keeping the training data order and
+fixed public test set constant. It validates the dataset manifests before
+training and stores their SHA-256 hashes with the experiment metadata.
+
+Run the default ten-seed protocol from the repository root:
+
+```bash
+python igfe_unet/script/reproducibility.py
+```
+
+Use `--methods` and `--seeds` to select a smaller controlled subset, and
+`--data-dir`, `--fixed-test-dir`, or `--output-root` to override the default
+paths. Existing runs are protected from replacement unless `--overwrite` is
+passed explicitly.
+
+The default output tree is:
+
+```text
+results/reproducibility/
+|-- configs/                      # protocol, manifests, hashes, run configs
+|-- models/<method>/seed_<seed>/  # independent checkpoints and histories
+|-- metrics/                      # per-sample, per-seed, cross-seed summaries
+`-- figures/                      # PNG/PDF seed-reproducibility figure
+```
+
+The summary files report relative L1, MAE, and RMSE. The paired LM-M versus
+GM-M table uses identical seed/sample pairs, while the cross-seed table reports
+the mean, sample standard deviation, and 95% confidence interval of the
+per-seed test means.
+
 ### 4. Run batch U-Net evaluation and postprocessing
 
 Useful entry points under `igfe_unet/script`:
@@ -423,6 +457,7 @@ Important: the comparison pipeline expects the shared fixed test set under `data
   `results/force_load/asm_unet_comparison/fixed_gamma_<value>/GN/`
 - ratio-study datasets are written under
   `data/mix_ratio_datasets/<ratio_tag>/force_load/`
+- fixed-data multi-seed outputs are written under `results/reproducibility/`
 
 ## Data and Model Assets
 
