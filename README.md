@@ -6,6 +6,7 @@ This repository collects the code used to study full-field Young's modulus recon
 - physics-guided U-Net training and evaluation in PyTorch
 - an adjoint/L-BFGS-B inverse solver baseline with Tikhonov regularization
 - comparison utilities for pure U-Net inference, cold-start ASM inversion, and UNet-warm-start ASM inversion
+- test-only GRF correlation-length generalization analysis for the unchanged final checkpoints
 
 The codebase follows the FE-GIN workflow described in the article [*Finite-element-guided inversion network for full-field reconstruction of graded modulus distributions*](https://doi.org/10.1016/j.ijmecsci.2026.112126).
 
@@ -14,6 +15,7 @@ The codebase follows the FE-GIN workflow described in the article [*Finite-eleme
 - generate displacement-modulus pairs for BIL, EXP, and GRF modulus fields
 - preprocess MATLAB data into tensors and FE residual metadata for neural training
 - train U-Net models with data, physics-only, and hybrid losses
+- evaluate unchanged final models on shorter-correlation-length GRF fields
 - benchmark against a classical adjoint-state inverse solver
 - compare reconstruction quality, noise robustness, and warm-start behavior on shared fixed test sets
 
@@ -38,6 +40,7 @@ The codebase follows the FE-GIN workflow described in the article [*Finite-eleme
 |-- data_generation/
 |   |-- stenglib-master/          # Third-party MATLAB helper library
 |   `-- uniform_pressure_load/    # IGFE forward solver and batch generation scripts
+|-- grf_generalization/           # Test-only GRF OOD generation and evaluation
 |-- igfe_unet/
 |   |-- architectures/            # U-Net, FE residual operators, custom losses
 |   |-- configs/                  # Dataset-specific experiment configs
@@ -411,6 +414,31 @@ What each script does:
 
 Important: the comparison pipeline expects the shared fixed test set under `data/fixed_test_sets/force_load`.
 
+### 7. Run the GRF correlation-length generalization test
+
+This branch adds an independent, test-only experiment for the three unchanged
+final U-Net checkpoints. It does not retrain the models or modify the formal
+`config_mix.py` settings. The main comparison uses GRF correlation lengths
+`25, 20, 15, 10, 8 mm`; the more extreme `5 mm` condition is retained as a
+separate supplementary stress test.
+
+Run the workflow from the repository root:
+
+```bash
+python grf_generalization/run_generate_cases.py
+python grf_generalization/run_preview_samples.py
+python grf_generalization/run_compare_cases.py
+```
+
+When running from a Git worktree whose ignored datasets and checkpoints remain
+in another checkout, set `FE_GIN_ASSET_ROOT` to that checkout before the model
+evaluation step. Generated datasets are written under
+`data/generalization_test_sets/force_load/`; metrics, field comparisons, and
+PNG/PDF figures are written under `results/grf_ood/`.
+
+See [`GENERALIZATION_TEST.md`](GENERALIZATION_TEST.md) for the controlled test
+design, sample-selection procedure, output layout, and interpretation boundary.
+
 ## Output Conventions
 
 - MATLAB data generation writes to `data/data_{type}/force_load`
@@ -423,6 +451,9 @@ Important: the comparison pipeline expects the shared fixed test set under `data
   `results/force_load/asm_unet_comparison/fixed_gamma_<value>/GN/`
 - ratio-study datasets are written under
   `data/mix_ratio_datasets/<ratio_tag>/force_load/`
+- GRF generalization datasets are written under
+  `data/generalization_test_sets/force_load/`
+- GRF generalization metrics and figures are written under `results/grf_ood/`
 
 ## Data and Model Assets
 
