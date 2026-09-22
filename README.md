@@ -335,6 +335,20 @@ GM-M table uses identical seed/sample pairs, while the cross-seed table reports
 the mean, sample standard deviation, and 95% confidence interval of the
 per-seed test means.
 
+After the checkpoints have been trained, evaluate all seeds with the
+manuscript noise protocol using:
+
+```bash
+python igfe_unet/script/evaluate_reproducibility_noise.py
+```
+
+The customizable constants at the top of the script define the result root,
+fixed test set, noise levels, evaluation batch size, and device. Completed
+method/seed/noise combinations are reused on restart. The command writes the
+long-format per-sample errors, per-seed summaries, cross-seed mean/standard
+deviation tables, paired tests with Holm-adjusted p-values, and the PNG/PDF
+multi-seed noise-robustness figure under `results/reproducibility/`.
+
 ### 4. Run batch U-Net evaluation and postprocessing
 
 Useful entry points under `igfe_unet/script`:
